@@ -2,6 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.zhiyun.agentrobot">
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" /> <!-- 如果需要 -->
+    <uses-permission android:name="android.permission.CAMERA" /> <!-- 如果需要 -->
+    <!-- 其他权限 -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+    <uses-feature android:name="android.hardware.microphone" android:required="true" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+
 
     <application
         android:name=".MyApplication"
@@ -14,6 +28,19 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ZhiYun_AgentRobot"
         tools:targetApi="31">
+
+        <service
+            android:name="com.ainirobot.agent.service.AgentClientService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera|connectedDevice"
+            tools:replace="android:exported" />
+
+
+        <!-- 您可能需要根据 AgentOS SDK 的实际用途调整这些类型。
+             如果还用到了摄像头，可以改为:
+             android:foregroundServiceType="microphone|camera|connectedDevice"
+             或者，如果非常不确定，先尝试 "specialUse"，但之后一定要查文档确认。
+        -->
 
 
         <activity

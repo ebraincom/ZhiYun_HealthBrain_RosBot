@@ -1,3 +1,21 @@
 <resources>
-    <string name="app_name">ZhiYun_AgentRobot</string>
+    <string name="app_name">智芸康养</string>
+    <string name="user_avatar_content_description">王阿姨</string>
+    <string name="one_touch_sos_button">一键呼叫</string>
+    <string name="weather_icon_content_description">天气</string>
+    <string name="zhiyun_robot_content_description">智芸小智</string>
+    <string name="zhiyun_record_title">智芸记录</string>
+    <string name="shopping_list_button">购物清单</string>
+    <string name="guide_button">导览</string>
+    <string name="daily_memo_button">日常便签</string>
+    <string name="item_storage_button">物品存放</string>
+    <string name="memory_showcase_content_description">智芸回忆录</string>
+    <string name="zhiyun_assistant_title">智芸助手</string>
+    <string name="reminder_list_showcase_content_description">智芸提醒列表</string>
+    <string name="plan_reminder_button">计划提醒</string>
+    <string name="medicine_reminder_button">服药管理</string>
+    <string name="today_reminder_button">当天提醒</string>
+    <string name="ai_brain_button">AI康养大脑</string>
+    <string name="repeat_reminder_button">重复提醒</string>
+    <string name="doctor_button">医博士</string>
 </resources>
