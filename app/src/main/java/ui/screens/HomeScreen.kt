@@ -954,4 +954,29 @@ fun AppTopBarSizedPreview() {
     )
     // }
 }
+@Composable
+fun HomeScreen() {
+    // 这里是您 HomeScreen 的实际 UI 实现
+    Text("这是主屏幕内容")
+}
 
+// --------------- 在这里或文件的其他地方添加预览函数 ---------------
+@Preview(
+    name = "Robot Screen - MDPI",
+    showBackground = true, // 可以添加这个让预览有个背景色
+    device = "spec:width=1920px,height=1080px,dpi=160"
+)
+@Composable
+fun HomeScreenPreview_RobotMDPI() { // 给预览函数一个描述性的名字
+    ZhiyunAgentRobotTheme { // 使用您的应用主题
+        HomeScreen() // 调用您想预览的 Composable
+    }
+}
+
+@Preview(name = "Default HomeScreen Preview", showBackground = true)
+@Composable
+fun DefaultHomeScreenPreview() {
+    ZhiyunAgentRobotTheme {
+        HomeScreen()
+    }
+}
