@@ -62,6 +62,8 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("io.coil-kt:coil-compose:2.6.0") //  请使用 Coil 的最新稳定版本
+
     // 1. AgentOS SDK 依赖 (来自文档)
     implementation("com.orionstar.agent:sdk:0.3.5-SNAPSHOT")
     // 2. RobotOS SDK 依赖 (您实际拥有的本地JAR)

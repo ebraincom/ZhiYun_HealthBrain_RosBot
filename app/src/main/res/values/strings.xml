@@ -18,4 +18,5 @@
     <string name="ai_brain_button">AI康养大脑</string>
     <string name="repeat_reminder_button">重复提醒</string>
     <string name="doctor_button">医博士</string>
+    <string name="robot_greeting_message">你可以对我说，小智伴我做点什么呢</string>
 </resources>
