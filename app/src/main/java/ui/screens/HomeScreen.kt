@@ -64,6 +64,10 @@ import com.zhiyun.agentrobot.ui.theme.TextPrimaryColor
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.ui.theme.shoppingCartGradientBrush
 import android.util.Log
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
+import kotlin.math.abs
 
 // import androidx.compose.material3.Icon // 确保导入正确的Icon
 
@@ -87,6 +91,8 @@ val UserProfileButtonEndColor = Color(0xFF90B0FA)
 val UserProfileTextColor = Color.White
 
 val AppTopBarOverallSurfaceColor = Color.White
+val ROBOT_ASSISTANT_WIDTH = 116.dp
+val ROBOT_ASSISTANT_HEIGHT = 228.dp
 
 // You can place this at the top level of HomeScreen.kt or in a separate common UI file
 
@@ -218,71 +224,81 @@ fun HomeScreen(
     onAiBrainClick: () -> Unit = {},
     onRepeatReminderClick: () -> Unit = {},
     onDoctorClick: () -> Unit = {},
+    // 机器人点击回调
+    onRobotAvatarClicked: () -> Unit = { Log.d("HomeScreen", "Default Robot Click Handler") }
 ) {
-    Scaffold(
-        topBar = {
-            AppTopBar(
-                userProfile = userProfile,
-                onUserProfileClick = {
-                    // 当用户区域被点击时执行的操作
-                    // 例如：导航到用户详情页，或显示一个弹窗
-                    Log.d("HomeScreen", "User profile area clicked!")
-                    // viewModel.onUserProfileClicked() // 如果使用 ViewModel
-                }, // ！！！添加这个参数！！！
-                onOneTouchSosClick = {
-                    // onOneTouchSosClick 的逻辑
-                    Log.d("HomeScreen", "SOS clicked!")
-                    // viewModel.onSosClicked()
-                },
-                onGuideClick = {
-                    // onGuideClick 的逻辑
-                    Log.d("HomeScreen", "Guide clicked!")
-                    // viewModel.onGuideClicked()
-                }
-            )
-        },
-        bottomBar = {
-            AppBottomBar(
-                robotMessage = stringResource(R.string.robot_greeting_message),
-                time = "10:30 AM ", // Placeholder
-                weatherInfo = "晴转多云 25-32度" // Placeholder
-            )
-        },
-        modifier = Modifier.fillMaxSize()
-    ) { innerPadding ->
-        Row(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-                .background(MainContentAreaBg) // From Theme
-                .padding(horizontal = 43.dp, vertical = 24.dp),
-            horizontalArrangement = Arrangement.Start //使用 Start,然后用 Spacer 控制精确间距
-        ) {
-            ZhiyunRecordSection(
-                modifier = Modifier
-                    .width(772.dp)
-                    .fillMaxHeight(),
-                onShoppingCartClick = onShoppingCartClick,
-                onMemoClick = onMemoClick,
-                onStorageClick = onStorageClick,
-                // onMemoryShowcaseClick = onMemoryShowcaseClick
-            )
-            // 添加精确的 Spacer
-            Spacer(Modifier.width(122.dp))
+    // --- 传递给 AppBottomBar 的占位符/实际数据 ---
+    val currentRobotMessage = stringResource(R.string.robot_greeting_message) // 替换或从 ViewModel 获取
+    val currentTimeToDisplay = "10:30 AM" // 占位符时间或从 ViewModel 获取
+    val currentWeatherData = "晴转多云 25-32度" // 占位符天气或从 ViewModel 获取
+    Box(modifier = modifier.fillMaxSize()) {
 
-            ZhiyunAssistantSection(
+        Scaffold(
+            topBar = {
+                AppTopBar(
+                    userProfile = userProfile,
+                    onUserProfileClick = { Log.d("HomeScreen", "User profile area clicked!") },
+                    onOneTouchSosClick = onOneTouchSosClick,
+                    onGuideClick = onGuideClick
+                )
+            },
+            // Scaffold 的 bottomBar 为空，因为我们手动在 Box 中放置 AppBottomBar
+            bottomBar = { /* Explicitly empty */ },
+            modifier = Modifier.fillMaxSize() // Scaffold 填满外部 Box
+        ) { innerPadding -> // innerPadding 来自 Scaffold，主要用于避开 TopAppBar
+
+            //主要内容区域
+            Row(
                 modifier = Modifier
-                    .width(867.dp)  // 根据设计稿，如果包含外层padding 876dp
-                    .fillMaxHeight(),
-                // onReminderListClick = onReminderListClick,
-                onPlanReminderClick = onPlanReminderClick,
-                onMedicineReminderClick = onMedicineReminderClick,
-                onTodayReminderClick = onTodayReminderClick,
-                onAiBrainClick = onAiBrainClick,
-                onRepeatReminderClick = onRepeatReminderClick,
-                onDoctorClick = onDoctorClick
-            )
-        }
+                    .padding(innerPadding) //1. 应用 Scaffold 的内边距 (避开 TopAppBar)
+                    .fillMaxSize()
+                    .background(MainContentAreaBg) // From Theme
+                    .padding(horizontal = 43.dp, vertical = 86.dp),
+                horizontalArrangement = Arrangement.Start //使用 Start,然后用 Spacer 控制精确间距
+            ) {
+                ZhiyunRecordSection(
+                    modifier = Modifier
+                        .width(772.dp)
+                        .fillMaxHeight(),
+                    onShoppingCartClick = onShoppingCartClick,
+                    onMemoClick = onMemoClick,
+                    onStorageClick = onStorageClick
+                )
+                Spacer(Modifier.width(122.dp))
+                ZhiyunAssistantSection(
+                    modifier = Modifier
+                        .width(867.dp)  // 根据设计稿，如果包含外层padding 876dp
+                        .fillMaxHeight(),
+                    // onReminderListClick = onReminderListClick, // 大图不需要点击效果
+                    onPlanReminderClick = onPlanReminderClick,
+                    onMedicineReminderClick = onMedicineReminderClick,
+                    onTodayReminderClick = onTodayReminderClick,
+                    onAiBrainClick = onAiBrainClick,
+                    onRepeatReminderClick = onRepeatReminderClick,
+                    onDoctorClick = onDoctorClick
+                )
+            }
+        } // End of Scaffold
+        // AppBottomBar 在 Box 中，Scaffold 之后，但在 RobotAssistantAvatar 之前
+        // AppBottomBar
+        AppBottomBar(
+            modifier = Modifier.align(Alignment.BottomCenter),
+            robotMessage = currentRobotMessage,
+            time = currentTimeToDisplay,
+            weatherInfo = currentWeatherData
+        )
+        // RobotAssistantAvatar 在 Box 中，最后声明，所以它在最上
+        val ROBOT_PADDING_FROM_LEFT = 56.dp
+        val ROBOT_PADDING_FROM_BOTTOM = 2.dp
+        RobotAssistantAvatar(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(
+                    start = ROBOT_PADDING_FROM_LEFT,
+                    bottom = ROBOT_PADDING_FROM_BOTTOM
+                ),
+            onClick = onRobotAvatarClicked
+        )
     }
 }
 @Composable
@@ -320,7 +336,10 @@ fun AppTopBar(
                         .clip(RoundedCornerShape(userProfileButtonHeight / 2)) // 圆角半径为高度的一半，形成胶囊状
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(UserProfileButtonStartColor, UserProfileButtonEndColor)
+                                colors = listOf(
+                                    UserProfileButtonStartColor,
+                                    UserProfileButtonEndColor
+                                )
                             )
                         )
                         .clickable { onUserProfileClick() }
@@ -385,114 +404,100 @@ fun AppTopBar(
 fun AppBottomBar(
     modifier: Modifier = Modifier,
     robotMessage: String,
+    weatherIconResId: Int = R.drawable.ic_weather_cloud,
     time: String,
     weatherInfo: String,
-    robotAvatarResId: Int = R.drawable.ic_robot_zhiyun,
-    weatherIconResId: Int = R.drawable.ic_weather_cloud
+    gradientColorStart: Color = Color(0xFFC7D2F2),
+    gradientColorEnd: Color = Color(0xFF667EEA),
+    contentTextColor: Color = Color.White // 您原始的是 White，我们后面讨论改为 Black
 ) {
-    // --- 渐变背景画刷 ---
-    val bottomBarBrush = Brush.linearGradient(
-        colors = listOf(AppBottomBarGradientStartColor, AppBottomBarGradientEndColor),
-        start = Offset.Zero,
-        end = Offset.Infinite
+    // --- 内部使用的尺寸和计算值 ---
+
+    val robotMessageFontSize = 32.sp
+    val robotMessageMaxHeight = 70.dp
+    val robotMessageContainerMaxWidth = 600.dp
+    val bottomBarActualHeight = 137.dp
+
+    val weatherIconSize = 45.dp
+
+    val horizontalPaddingOverall = 24.dp
+    val messageStartPadding = horizontalPaddingOverall + 120.dp // 示例：整体边距 + 一点额外空间
+    // 机器人图标现在独立布局，文本区域需要从其右侧开始，或者有一个明确的起始边距
+    // 我们让文本区域从 horizontalPaddingOverall + robotAvatarDisplayWidth + 适当间距 开始
+    val bottomBarBrush = Brush.horizontalGradient(
+        colors = listOf(gradientColorEnd, gradientColorStart)
     )
-
-    // --- 从设计稿提取的尺寸和字体大小 (直接使用 px 值作为 dp/sp, 因为是 MDPI 160dpi) ---
-
-    // 底部栏整体高度
-    val bottomBarHeight = 137.dp // 设计稿: 137px
-
-    // 机器人头像
-    // 设计稿中机器人图片本身很大，这里需要一个适合底部栏的显示尺寸。
-    // 设计稿中机器人头像区域的宽度是 267px，如果头像是贴左的，
-    // 我们可以估算一个头像本身的尺寸，例如 80dp (px)。
-    // ** 这个值仍需您根据视觉效果仔细调整，以使其在137dp高的底部栏中看起来协调 **
-    val robotAvatarDisplaySize = 80.dp // !! 这是一个关键的调整点 !!
-
-    // 机器人说话文本
-    val robotMessageFontSize = 32.sp     // 设计稿: 32px (font-size)
-    val robotMessageMaxHeight = 36.dp    // 设计稿文本容器高度: 36px
-    val robotMessageContainerWidth = 699.dp // 设计稿文本容器宽度: 699px
-
-    // 天气图标
-    val weatherIconSize = 45.dp          // 设计稿: 45px
-
-    // 间距 (直接使用设计稿 px 值作为 dp)
-    val horizontalPaddingOverall = 24.dp   // 底部栏左右的整体内边距 (可根据设计稿调整，第一张图左右有边距)
-    val spacingRobotToText = 51.dp         // 设计稿: 51px
-    // 机器人说话文本区域(699dp)之后，到时间文本(95dp)开始，设计图标注50px间距
-    // 我们用SpaceBetween，所以这个间距由布局自动处理一部分，但可以考虑调整weight或添加一个小的Spacer
-    val spacingTextContainerToEnd = 50.dp  // 文字容器到时间区域的间距
-
-    val spacingTimeInternal = 10.dp        // 时间和天气图标之间的间距 (估计值)
-    val spacingWeatherIconToText = 8.dp    // 天气图标和天气文字之间的间距 (估计值)
-    val timeTextWidth = 95.dp              // 设计稿时间文本宽度: 95px
-
-
-    Box(
+    // 1. 底部栏的背景和主要内容 (除了机器人图标)
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(bottomBarHeight)
+            .height(137.dp)
             .background(bottomBarBrush)
-            .padding(horizontal = horizontalPaddingOverall)
+            .padding(horizontal = horizontalPaddingOverall),
+            // .padding(start = messageStartPadding),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Text(
+            text = robotMessage,
+            color = contentTextColor,
+            fontSize = robotMessageFontSize,
+            fontWeight = FontWeight.W400,
+            modifier = Modifier
+                .weight(1f) // 允许文本区域扩展
+                .heightIn(max = robotMessageMaxHeight)
+                //.widthIn(max = robotMessageContainerMaxWidth)
+                .padding(end = 16.dp), // 文本和右侧时间天气区域的间距
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        // 右侧时间天气信息
         Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // --- 左侧区域: 机器人头像 + 消息 ---
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                // modifier = Modifier.weight(1f) // 先去掉weight，让其自然包裹内容
-            ) {
-                Image(
-                    painter = painterResource(id = robotAvatarResId),
-                    contentDescription = "Robot Avatar",
-                    modifier = Modifier.size(robotAvatarDisplaySize), // 应用机器人头像显示尺寸
-                    contentScale = ContentScale.Fit
-                )
-                Spacer(Modifier.width(spacingRobotToText))
-                Text(
-                    text = robotMessage,
-                    color = AppBottomBarContentColor,
-                    fontSize = robotMessageFontSize,
-                    fontWeight = FontWeight.W400, // 设计稿 Cousine, weight 400
-                    // fontFamily = FontFamily(Font(R.font.cousine_regular)), // !! 如果集成了Cousine字体 !!
-                    modifier = Modifier
-                        .widthIn(max = robotMessageContainerWidth) // 限制文本区域的最大宽度
-                        .heightIn(max = robotMessageMaxHeight), // 限制文本区域的最大高度
-                    maxLines = 2 // 允许机器人消息最多显示两行
-                )
-            }
-            // Spacer(Modifier.weight(1f)) // 如果左侧内容和右侧内容需要尽可能分开，可以加一个权重spacer
-
-            // --- 右侧区域: 时间 + 天气图标 + 天气信息 ---
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = time,
-                    color = AppBottomBarContentColor,
-                    fontSize = 36.sp, // 根据视觉效果调整，通常时间字体较大
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.width(timeTextWidth) // 应用设计稿时间文本宽度
-                )
-                Spacer(Modifier.width(spacingTimeInternal))
-                Image(
-                    painter = painterResource(id = weatherIconResId),
-                    contentDescription = "Weather Icon",
-                    modifier = Modifier.size(weatherIconSize)
-                )
-                Spacer(Modifier.width(spacingWeatherIconToText))
-                Text(
-                    text = weatherInfo,
-                    color = AppBottomBarContentColor,
-                    fontSize = 14.sp, // 根据视觉效果调整
-                    lineHeight = 18.sp,
-                )
-            }
+            Text(
+                text = time,
+                color = contentTextColor,
+                fontSize = 36.sp // 或者您期望的字体大小
+            )
+            Image(
+                painter = painterResource(R.drawable.ic_weather_cloud),
+                contentDescription = "Weather Icon",            // 之前是 iconDescription，已修正
+                modifier = Modifier.size(weatherIconSize)
+            )
+            Text(
+                text = weatherInfo,
+                color = contentTextColor,
+                fontSize = 25.sp // 或者您期望的字体大小
+            )
         }
     }
 }
+// RobotAssistantAvatar.kt (或 HomeScreen.kt 内)
+@Composable
+fun RobotAssistantAvatar(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+
+) {
+    Image(
+        painter = painterResource(id = R.drawable.ic_robot_zhiyun), // <--- 更新的资源名称
+        contentDescription = stringResource(R.string.robot_assistant_avatar_description), // 确保此字符串资源存在
+        contentScale = ContentScale.FillBounds, // 或根据您的图片资源和期望调整，例如 ContentScale.FillHeight
+        modifier = modifier
+            .width(ROBOT_ASSISTANT_WIDTH)  // 89.dp
+            .height(ROBOT_ASSISTANT_HEIGHT) // 161.dp
+            .clickable(
+                onClick = onClick,
+                role = Role.Button,
+                onClickLabel = stringResource(R.string.robot_avatar_click_label) // 确保此字符串资源存在
+            )
+    )
+}
+
+
+
 
 @Composable
 fun ZhiyunRecordSection(
@@ -535,7 +540,9 @@ fun ZhiyunRecordSection(
                 // 按钮也应该使用 FeatureButton统一
                 // MODIFICATION: “购物清单”按钮统一使用 FeatureButton
                 FeatureButton(
-                    modifier = Modifier.fillMaxWidth().height(149.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(149.dp),
                     text = stringResource(R.string.shopping_list_button),
                     iconPainter = painterResource(id = R.drawable.ic_shopping_cart_placeholder),
                     iconDescription = stringResource(R.string.shopping_list_button),
@@ -553,7 +560,9 @@ fun ZhiyunRecordSection(
 
                 // MODIFICATION: “日常便签”按钮调用 FeatureButton，确保参数完整
                 FeatureButton(
-                    modifier = Modifier.fillMaxWidth().height(149.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(149.dp),
                     text = stringResource(R.string.daily_memo_button),
                     iconPainter = painterResource(id = R.drawable.ic_memo_placeholder),
                     iconDescription = stringResource(R.string.daily_memo_button),
@@ -571,7 +580,9 @@ fun ZhiyunRecordSection(
 
                 // MODIFICATION: “物品存放”按钮调用 FeatureButton，确保参数完整
                 FeatureButton(
-                    modifier = Modifier.fillMaxWidth().height(149.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(149.dp),
                     text = stringResource(R.string.item_storage_button),
                     iconPainter = painterResource(id = R.drawable.ic_storage_placeholder),
                     iconDescription = stringResource(R.string.item_storage_button),
@@ -653,6 +664,8 @@ fun ZhiyunAssistantSection(
                 .fillMaxWidth()                 // 占据父 Column 的全部宽度
                 .height(overallContentHeight)  // 固定内容区域高度
                 .clip(RoundedCornerShape(11.dp)), // AI调整: 内容区圆角
+            verticalAlignment = Alignment.CenterVertically,   // 使得 Text(robotMessage) 和 Row(timeAndWeather) 垂直居中
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Image(
                 painter = painterResource(id = R.drawable.img_reminder_list_showcase),
@@ -953,30 +966,4 @@ fun AppTopBarSizedPreview() {
         onGuideClick = { Log.d("Preview", "Guide clicked in preview") }
     )
     // }
-}
-@Composable
-fun HomeScreen() {
-    // 这里是您 HomeScreen 的实际 UI 实现
-    Text("这是主屏幕内容")
-}
-
-// --------------- 在这里或文件的其他地方添加预览函数 ---------------
-@Preview(
-    name = "Robot Screen - MDPI",
-    showBackground = true, // 可以添加这个让预览有个背景色
-    device = "spec:width=1920px,height=1080px,dpi=160"
-)
-@Composable
-fun HomeScreenPreview_RobotMDPI() { // 给预览函数一个描述性的名字
-    ZhiyunAgentRobotTheme { // 使用您的应用主题
-        HomeScreen() // 调用您想预览的 Composable
-    }
-}
-
-@Preview(name = "Default HomeScreen Preview", showBackground = true)
-@Composable
-fun DefaultHomeScreenPreview() {
-    ZhiyunAgentRobotTheme {
-        HomeScreen()
-    }
 }
