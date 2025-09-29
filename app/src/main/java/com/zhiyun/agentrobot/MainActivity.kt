@@ -64,6 +64,26 @@ class MainActivity : ComponentActivity() {
         Log.d("MainActivity", "Activity onCreate: START")
         super.onCreate(savedInstanceState)
 
+        // --- 您可以把获取屏幕信息的代码放在这里 START ---
+        val displayMetrics = resources.displayMetrics
+        val densityDpi = displayMetrics.densityDpi
+        val density = displayMetrics.density // density factor
+        val screenWidthPx = displayMetrics.widthPixels
+        val screenHeightPx = displayMetrics.heightPixels
+        val screenWidthDp = screenWidthPx / density
+        val screenHeightDp = screenHeightPx / density
+
+        Log.i("MainActivityScreenInfo", "Density DPI: $densityDpi")
+        Log.i("MainActivityScreenInfo", "Density (factor): $density")
+        Log.i("MainActivityScreenInfo", "Screen Width (px): $screenWidthPx")
+        Log.i("MainActivityScreenInfo", "Screen Height (px): $screenHeightPx")
+        Log.i("MainActivityScreenInfo", "Screen Width (dp): $screenWidthDp")
+        Log.i("MainActivityScreenInfo", "Screen Height (dp): $screenHeightDp")
+        // --- 获取屏幕信息的代码放在这里 END ---
+
+
+
+
         setContent {
             Log.d("MainActivity", "setContent Composable lambda: ENTER")
             ZhiyunAgentRobotTheme {

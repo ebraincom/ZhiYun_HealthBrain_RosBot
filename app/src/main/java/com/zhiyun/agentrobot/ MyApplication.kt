@@ -4,14 +4,20 @@ import android.app.Application
 import android.os.Bundle
 import android.util.Log // 添加 Log 用于调试
 import com.ainirobot.agent.AppAgent
-import com.ainirobot.agent.action.Action // 需要导入 Action
-// import com.ainirobot.agent.action.ActionExecutor // 导入 ActionExecutor 接口
+import com.ainirobot.agent.AgentCore
+import com.ainirobot.agent.action.Action
+import com.ainirobot.agent.action.ActionExecutor
+import com.ainirobot.agent.action.Actions
+import com.ainirobot.agent.coroutine.AOCoroutineScope
+import kotlinx.coroutines.launch
+import com.ainirobot.agent.base.ActionResult
+import com.ainirobot.agent.base.ActionStatus
+
 
 class MyApplication : Application() {
-    // lateinit var appAgent: AppAgent // 保持 latein
-    // 或者，如果您希望更安全地检查是否已初始化：
-    var appAgent: AppAgent? = null
-        private set
+    private var appAgentInstance: AppAgent? = null
+    private var isAgentSDKInitialized: Boolean = false
+    private var TAG  = "MyApplication"
 
     override fun onCreate() {
         Log.d("MyApplication", "Application onCreate: START") // 更早的日志
@@ -23,62 +29,84 @@ class MyApplication : Application() {
             "Application onCreate: FINISHED (AppAgent will be initialized later)"
         )
     }
-
     fun initializeAgentSDK() {
-        if (appAgent == null) {// 检查是否已初始化
-            try {
-                Log.d("MyApplication", "AppAgent initialization: START")
-                this.appAgent = object : AppAgent(this@MyApplication) {
-                    override fun onCreate() {
-                        // 这是 AppAgent 初始化完成后的回调
-                        // 在这里设置 Persona 和 Style
-                        Log.d("MyApplication", "AppAgent internal onCreate: START")
-                        setPersona("我是智芸小智，您的专属智能助手，致力于提供专业和细致的康养服务。")
-                        setStyle("专业、友好、乐于助人")
-                        Log.d("MyApplication", "AppAgent internal onCreate: Persona and Style SET")
-                        Log.d("MyApplication", "AppAgent internal onCreate: FINISHED")
-                    }
+        Log.d(TAG, "MyApplication: Attempting to initialize AgentSDK...")
+        if (!isAgentSDKInitialized) {
+            appAgentInstance = object : AppAgent(this@MyApplication) {
+                override fun onCreate() {
+                    Log.i(TAG, "AppAgent: onCreate callback invoked.")
+                    setPersona("你是一个乐于助人的智芸康养机器人助手。")
 
-                    override fun onExecuteAction(action: Action, params: Bundle?): Boolean {
-                        Log.d(
-                            "MyApplication",
-                            "AppAgent onExecuteAction for action: ${action.name}"
-                        )
-                        return false
-                    }
+                    // 1. 注册系统内置的 SAY Action (推荐)
+                    registerAction(Actions.SAY)
+                    Log.i(TAG, "AppAgent: Actions.SAY registered.")
+
+                    // 2. 定义并注册我们的自定义“打招呼” Action
+                    val greetingAction = Action(
+                        name = "com.zhiyun.agentrobot.action.GREETING", // Action 的唯一名称
+                        displayName = "打个招呼",
+                        desc = "当用户向我说你好、hello、嗨等问候语时执行此操作，我会回应一个友好的问候。",
+                        parameters = emptyList<com.ainirobot.agent.base.Parameter>(),
+                        object : ActionExecutor {
+                            override fun onExecute(action: Action, params: Bundle?): Boolean {
+                                Log.i(TAG, "AppAgent: Executing GREETING Action.")
+                                val greetingResponse = "你好，有什么可以帮您？"
+
+                                AOCoroutineScope.launch {
+                                    try {
+                                        Log.d(TAG, "AppAgent: Playing TTS: $greetingResponse")
+                                        AgentCore.ttsSync(greetingResponse)
+                                        Log.i(
+                                            TAG,
+                                            "AppAgent: TTS playback finished for GREETING Action."
+                                        )
+                                        action.notify() // TTS 成功播放后通知 Action 完成
+                                    } catch (e: Exception) {
+                                        Log.e(
+                                            TAG,
+                                            "AppAgent: Error during TTS playback for GREETING",
+                                            e
+                                        )
+                                        // 即使TTS失败，也要通知Action完成，并标记为失败
+                                        action.notify(result = ActionResult(ActionStatus.FAILED))
+                                    }
+                                }
+                                return true
+                            }
+                        }
+                    )
+                    registerAction(greetingAction)
+                    Log.i(TAG, "AppAgent: GREETING Action registered.")
+
+                    //可选：添加 OnTranscribeListener 用于调试 ASR 结果
+                    this.setOnTranscribeListener(object : com.ainirobot.agent.OnTranscribeListener {
+                        override fun onASRResult(transcription: com.ainirobot.agent.base.Transcription): Boolean {
+                            Log.d(TAG, "AppAgent ASR Result: '${transcription.text}', final: ${transcription.final}")
+                            return false // 返回 false 表示不消费这个事件，让 SDK 继续处理
+                        }
+                        override fun onTTSResult(transcription: com.ainirobot.agent.base.Transcription): Boolean {
+                            Log.d(TAG, "AppAgent TTS Result: '${transcription.text}', final: ${transcription.final}")
+                            return false
+                        }
+                    })
+                    Log.i(TAG, "AppAgent: OnTranscribeListener registered for debugging.")
+
                 }
-                Log.d(
-                    "MyApplication",
-                    "AppAgent initialization: FINISHED(called from Activity)"
-                )
-            } catch (e: Throwable) {
-                Log.e(
-                    "MyApplication",
-                    "FATAL ERROR during AppAgent initialization: ${e.message}",
-                    e
-                )
-                // 考虑是否真的要在这里重新抛出，或者只是记录错误
-                // 如果这里抛出，而调用方没有捕获，调用方可能会崩溃
-                // throw e
+
+                override fun onExecuteAction(action: Action, params: Bundle?): Boolean {
+                    Log.d(TAG, "AppAgent: onExecuteAction (for static actions) for ${action.name}")
+                    return false
+                }
             }
+            isAgentSDKInitialized = true
+            Log.i(TAG, "MyApplication: AgentSDK initialized successfully. AppAgent instance created.")
         } else {
-            Log.d("MyApplication", "AppAgent already initialized.")
+            Log.i(TAG, "MyApplication: AgentSDK already initialized.")
         }
+    }
+
+    fun getAppAgent(): AppAgent? {
+        return appAgentInstance
     }
 }
 
-
-
-// 在这里可以考虑添加更强的错误处理，比如上传错误报告等
-// 将 registerHelloWorldAction 定义为 MyApplication 类的一个私有方法
-    // private fun registerHelloWorldAction() {
-        // 定义一个简单的 Action
-        // val helloWorldAction = Action(
-            // name = "com.zhiyun.agentrobot.action.HELLO_WORLD", // Action 的唯一名称
-            // displayName = "打个招呼", // 显示名称
-            // desc = "一个简单的打招呼动作，会打印一条日志。", // 描述，给大模型理解用
-            // parameters = emptyList(), // 使用 emptyList() 表示没有参数
-            // executor = object : ActionExecutor { // Action 的执行器
-                // override fun onExecute(action: Action, params: Bundle?): Boolean {
-                   //  Log.i("HelloWorldAction", "Hello World from AppAgent! Action ID: ${action.sid}, User Query: ${action.userQuery}")
-                    // action.notify() // 通知 Action 执行完成 (默认成功)
