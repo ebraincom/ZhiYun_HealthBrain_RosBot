@@ -20,9 +20,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.zhiyun.agentrobot.ui.screens.HomeScreen
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
+
 // import com.ainirobot.agent.AgentCore // 如果您的 HomeScreen 或其他地方确实需要，再取消注释
 
 class MainActivity : ComponentActivity() {
+
 
     // --- 状态变量声明区 ---
     private var isRecordAudioPermissionGranted by mutableStateOf(false)
@@ -193,9 +195,7 @@ class MainActivity : ComponentActivity() {
         }
         isLoadingPermissions = false // SDK 初始化尝试完成后，结束加载状态
     }
-
 } // <--- MainActivity 类的结束花括号
-
 
 // --- 顶层 Composable 函数 (在 MainActivity 类外部) ---
 @Composable

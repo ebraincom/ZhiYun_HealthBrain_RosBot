@@ -90,6 +90,13 @@
             -->
         </activity>
 
+        <activity
+            android:name=".ui.guide.GuideActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ZhiYun_AgentRobot">
+        </activity>
+
+
     </application>
 
 </manifest>

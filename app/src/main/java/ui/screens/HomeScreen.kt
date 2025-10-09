@@ -77,6 +77,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog // <-- 1. 导入我们创建的对话框
+import android.content.Intent
+import com.zhiyun.agentrobot.ui.guide.GuideActivity
 import kotlin.math.abs
 // import androidx.compose.material3.Icon // 确保导入正确的Icon
 
@@ -289,7 +291,13 @@ fun HomeScreen(
                         showRoleDialog = true
                         Log.d("HomeScreen", "More Consult Button Clicked! Opening role selection dialog...")
                     },
-                    onGuideClick = onGuideClick
+                    onGuideClick = {
+                        Log.d("HomeScreen", "导览界面按钮被点击，准备跳转...")
+                        // 创建 Intent
+                        val intent = Intent(context, GuideActivity::class.java)
+                        // 启动 Activity
+                        context.startActivity(intent)
+                    }
                 )
             },
             // Scaffold 的 bottomBar 为空，因为我们手动在 Box 中放置 AppBottomBar
@@ -379,6 +387,10 @@ fun AppTopBar(
     val userProfileButtonHeight = buttonImageHeight // 尝试让用户区按钮与图片按钮等高
     val imageButtonWidth = 175.dp
     val moreInquiriesButtonWidth = 175.dp // 为"更多咨询"按钮设置一个明确的宽度
+    val context = LocalContext.current
+
+
+
 
     Surface(
         modifier = Modifier
@@ -479,6 +491,7 @@ fun AppTopBar(
                         .clickable { onGuideClick() },
                     contentScale = ContentScale.FillBounds // 或 FillWidth/FillHeight/Fit
                 )
+
             } // 右侧区域结束
         }
     }

@@ -14,15 +14,12 @@ import com.ainirobot.agent.base.ActionResult
 import com.ainirobot.agent.base.ActionStatus
 import com.zhiyun.agentrobot.data.Role // <-- 1. 导入我们创建的 Role 类
 import com.zhiyun.agentrobot.data.defaultRole // <-- 2. 导入我们定义的 defaultRole
-import android.content.Intent // 1. 导入 Intent
-import androidx.localbroadcastmanager.content.LocalBroadcastManager // 2. 导入 LocalBroadcastManager
 import kotlinx.coroutines.launch
 
 class MyApplication : Application() {
     // 【修改1】: 将 appAgentInstance 重命名为 appAgent，并设为私有 setter
     lateinit var appAgent: AppAgent
         private set
-    private var appAgentInstance: AppAgent? = null
     private var isAgentSDKInitialized: Boolean = false
     private var TAG = "MyApplication"
 
@@ -142,17 +139,9 @@ class MyApplication : Application() {
             // 重置大模型的对话上下文，让新的 Persona 和 Objective 立即生效
             AgentCore.clearContext()
             Log.i(TAG, "AgentCore context has been cleared.")
-            // --- 【核心修正】: 发送一个本地广播通知前台页面角色已更新 ---
-            val intent = Intent(ACTION_ROLE_SWITCHED)
-            LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
-            Log.i(TAG, "Broadcast sent: ACTION_ROLE_SWITCHED")
-            // --- 修正结束 ---
+
         } else {
             Log.w(TAG, "Cannot switch role because AppAgent is not initialized yet.")
         }
-    }
-
-    companion object {
-        const val ACTION_ROLE_SWITCHED = "com.zhiyun.agentrobot.ACTION_ROLE_SWITCHED"
     }
 }
