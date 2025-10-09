@@ -1,7 +1,10 @@
+
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlinCompose)
+    id("kotlin-parcelize") // <-- 添加这一行，因为增加机器角色而增加
     // 用这个替换：
     // id("org.jetbrains.kotlin.plugin.compose") version libs.versions.composeCompiler.get() // 或者直接写 "1.5.11"
     // id("org.jetbrains.kotlin.plugin.compose") version "1.5.8" // <--- 直接在这里应用并指定版本
@@ -62,6 +65,7 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     implementation("io.coil-kt:coil-compose:2.6.0") //  请使用 Coil 的最新稳定版本
 
     // 1. AgentOS SDK 依赖 (来自文档)

@@ -50,7 +50,10 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.zhiyun.agentrobot.R
-import com.zhiyun.agentrobot.ui.theme.AppTopBarSurfaceColor
+import kotlinx.coroutines.delay
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import com.zhiyun.agentrobot.ui.theme.AssistantButtonBlueBg
 import com.zhiyun.agentrobot.ui.theme.AssistantButtonBlueContent
 import com.zhiyun.agentrobot.ui.theme.AssistantButtonYellowBg
@@ -63,12 +66,18 @@ import com.zhiyun.agentrobot.ui.theme.TextButtonWhite
 import com.zhiyun.agentrobot.ui.theme.TextPrimaryColor
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.ui.theme.shoppingCartGradientBrush
+import com.zhiyun.agentrobot.MyApplication
 import android.util.Log
-import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog // <-- 1. 导入我们创建的对话框
 import kotlin.math.abs
-
 // import androidx.compose.material3.Icon // 确保导入正确的Icon
 
 // import coil.compose.AsyncImage
@@ -227,10 +236,47 @@ fun HomeScreen(
     // 机器人点击回调
     onRobotAvatarClicked: () -> Unit = { Log.d("HomeScreen", "Default Robot Click Handler") }
 ) {
+    // 2. 添加一个状态来管理对话框的显示/隐藏
+    var showRoleDialog by remember { mutableStateOf(false) }
+
+    // 3. 获取当前上下文，用于之后获取 Application 实例
+    val context = LocalContext.current
+
+    // 4. 当 showRoleDialog 状态为 true 时，显示我们的对话框
+    if (showRoleDialog) {
+        RoleSelectionDialog(
+            onDismissRequest = {
+                showRoleDialog = false // 点击对话框外部或按返回键时，关闭对话框
+            },
+            onRoleSelected = { selectedRole ->
+                // 5. 当一个角色被选中时的核心逻辑
+                val application = context.applicationContext as MyApplication
+                application.switchAgentRole(selectedRole) // 调用 Application 中的方法切换角色
+                showRoleDialog = false // 完成后，关闭对话框
+            }
+        )
+    }
+
     // --- 传递给 AppBottomBar 的占位符/实际数据 ---
+
     val currentRobotMessage = stringResource(R.string.robot_greeting_message) // 替换或从 ViewModel 获取
-    val currentTimeToDisplay = "10:30 AM" // 占位符时间或从 ViewModel 获取
+    // val currentTimeToDisplay = "10:30 AM" // 占位符时间或从 ViewModel 获取
     val currentWeatherData = "晴转多云 25-32度" // 占位符天气或从 ViewModel 获取
+    // --- VV 新增：实时时间状态管理 VV ---
+    var currentTimeToDisplay by remember { mutableStateOf(getCurrentFormattedTime()) }
+    LaunchedEffect(Unit) { // key1 为 Unit 表示这个 effect 只在 Composable 首次进入组合时运行，并在离开时取消
+        while (true) {
+            currentTimeToDisplay = getCurrentFormattedTime()
+            // 如果您希望时间精确到秒并每秒更新，使用 1000L
+            // 如果只需要分钟级别更新，可以使用 60000L (更节省资源)
+            // 考虑到截图显示的是 "10:30 AM"，没有秒，每分钟更新一次可能就够了。
+            // 但如果AM/PM的切换需要在正确的时间点发生，或者分钟的跳变需要及时，每秒更新然后格式化时去掉秒是更保险的做法。
+            // 我们先用每秒更新，如果性能敏感再调整。
+            delay(1000L)
+        }
+    }
+    // -- AA 新增时间管理结束
+
     Box(modifier = modifier.fillMaxSize()) {
 
         Scaffold(
@@ -239,6 +285,10 @@ fun HomeScreen(
                     userProfile = userProfile,
                     onUserProfileClick = { Log.d("HomeScreen", "User profile area clicked!") },
                     onOneTouchSosClick = onOneTouchSosClick,
+                    onMoreConsultClick = {
+                        showRoleDialog = true
+                        Log.d("HomeScreen", "More Consult Button Clicked! Opening role selection dialog...")
+                    },
                     onGuideClick = onGuideClick
                 )
             },
@@ -284,7 +334,7 @@ fun HomeScreen(
         AppBottomBar(
             modifier = Modifier.align(Alignment.BottomCenter),
             robotMessage = currentRobotMessage,
-            time = currentTimeToDisplay,
+            time = currentTimeToDisplay, // 使用动态时间管理
             weatherInfo = currentWeatherData
         )
         // RobotAssistantAvatar 在 Box 中，最后声明，所以它在最上
@@ -301,24 +351,41 @@ fun HomeScreen(
         )
     }
 }
+
+// --- VV 新增：获取并格式化当前时间的辅助函数 VV ---
+// 这个函数可以放在 HomeScreen.kt 文件的底部，或者一个通用的工具文件中
+private fun getCurrentFormattedTime(): String {
+    // 根据您截图的 "10:30 AM" 格式
+    // hh: 12小时制的小时 (01-12)
+    // mm: 分钟
+    // a: AM/PM 标记
+    // Locale.getDefault() 确保 AM/PM 根据设备语言显示 (例如 英语是 AM/PM, 中文可能是 上午/下午)
+    val formatter = DateTimeFormatter.ofPattern("HH:mm a", Locale.getDefault())
+    return LocalDateTime.now().format(formatter)
+}
+// --- AA 新增结束 ---
 @Composable
 fun AppTopBar(
     userProfile: UserProfile,
     onUserProfileClick: () -> Unit,
     onOneTouchSosClick: () -> Unit,
+    onMoreConsultClick: () -> Unit, // 新增的回调onMoreConsultClick: () -> Unit, // 新增的回调
     onGuideClick: () -> Unit
 ) {
     // 整个TopBar的高度，设计图是113dp，需要确保内部元素能合理布局
     // 按钮图片高度是 63dp，用户信息区的复合按钮也尽量与之协调
+    Log.d("AppTopBar", "Rendering AppTopBar (M3 Version)...")
     val buttonImageHeight = 63.dp // SOS 和 Guide 按钮的高度
     val userProfileButtonHeight = buttonImageHeight // 尝试让用户区按钮与图片按钮等高
+    val imageButtonWidth = 175.dp
+    val moreInquiriesButtonWidth = 175.dp // 为"更多咨询"按钮设置一个明确的宽度
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .height(113.dp), // 保持TopBar整体高度
         color = AppTopBarOverallSurfaceColor,
-        shadowElevation = 2.dp
+        shadowElevation = 4.dp
     ) {
         Row(
             modifier = Modifier
@@ -347,10 +414,9 @@ fun AppTopBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(
-                        painter = painterResource(id = userProfile.avatarResId),
+                        painter = painterResource(id = R.drawable.user_avatar),
                         contentDescription = "User Avatar",
                         modifier = Modifier
-                            // 为了圆形效果，使用一个正方形尺寸，且小于等于按钮高度减去一些内部padding
                             .size(userProfileButtonHeight - 16.dp) // 例如: 63dp - 16dp = 47dp, 请调整以获得最佳视觉
                             .clip(CircleShape),
                         contentScale = ContentScale.Crop // 确保图片填满并正确裁剪
@@ -386,16 +452,34 @@ fun AppTopBar(
                 )
             } // 左侧区域结束
 
-            // == 最右侧“导入界面”图片按钮 ==
-            Image(
-                painter = painterResource(id = R.drawable.ic_guide_scan), // 使用正确的资源名
-                contentDescription = "导入界面",
-                modifier = Modifier
-                    .width(175.dp)
-                    .height(buttonImageHeight) // 63.dp
-                    .clickable { onGuideClick() },
-                contentScale = ContentScale.FillBounds // 或者 Fit
-            )
+            // == 右侧的按钮组，“更多咨询”+导览界面 ==
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Log.d("AppTopBar", "Rendering 'More Inquiries' button...") // 调试日志
+                // -- “更多咨询” 图标按钮 -- (新增)
+                Image(
+                    painter = painterResource(id = R.drawable.ic_for_more_inquiries),
+                    contentDescription = "更多咨询", // 用于无障碍
+                    modifier = Modifier
+                        .width(moreInquiriesButtonWidth)
+                        .height(buttonImageHeight)
+                        // .background(Color.Magenta)
+                        .clickable { onMoreConsultClick() },
+                    contentScale = ContentScale.FillBounds // 使用 Fit 以免图片变形，同时能看到背景色
+                )
+
+                Spacer(Modifier.width(16.dp)) // “更多咨询”和“导入界面”之间的间距, 根据视觉调整
+
+                // -- “导入界面”图片按钮 --
+                Image(
+                    painter = painterResource(id = R.drawable.ic_guide_scan),
+                    contentDescription = "导览界面",
+                    modifier = Modifier
+                        .width(175.dp) // 根据您的图片资源调整宽度
+                        .height(buttonImageHeight)
+                        .clickable { onGuideClick() },
+                    contentScale = ContentScale.FillBounds // 或 FillWidth/FillHeight/Fit
+                )
+            } // 右侧区域结束
         }
     }
 }
@@ -446,7 +530,7 @@ fun AppBottomBar(
             modifier = Modifier
                 .weight(1f) // 允许文本区域扩展
                 .heightIn(max = robotMessageMaxHeight)
-                //.widthIn(max = robotMessageContainerMaxWidth)
+                .padding(start = 164.dp)
                 .padding(end = 16.dp), // 文本和右侧时间天气区域的间距
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
@@ -822,6 +906,7 @@ fun AppTopBarPreview() {
                 userProfile = UserProfile(name = "横屏预览用户", avatarResId = R.drawable.user_avatar),
                 onUserProfileClick = { Log.d("Preview", "SOS clicked") },
                 onOneTouchSosClick = { Log.d("Preview", "SOS clicked") },
+                onMoreConsultClick = { Log.d("Preview","MoreConsult clicked") },
                 onGuideClick = { Log.d("Preview","Guide clicked") }
         )
     }
@@ -963,6 +1048,7 @@ fun AppTopBarSizedPreview() {
         userProfile = UserProfile(name = "李时珍", avatarResId = R.drawable.user_avatar),
         onUserProfileClick = { Log.d("Preview", "User profile clicked in preview") }, // ！！！添加这个参数！！！
         onOneTouchSosClick = { Log.d("Preview", "SOS clicked in preview") },
+        onMoreConsultClick = { Log.d("Preview", "MoreConsult clicked in preview") },
         onGuideClick = { Log.d("Preview", "Guide clicked in preview") }
     )
     // }
