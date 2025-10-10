@@ -68,8 +68,9 @@ import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.ui.theme.shoppingCartGradientBrush
 import com.zhiyun.agentrobot.MyApplication
 import android.util.Log
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -236,7 +237,9 @@ fun HomeScreen(
     onRepeatReminderClick: () -> Unit = {},
     onDoctorClick: () -> Unit = {},
     // 机器人点击回调
-    onRobotAvatarClicked: () -> Unit = { Log.d("HomeScreen", "Default Robot Click Handler") }
+    onRobotAvatarClicked: () -> Unit = { Log.d("HomeScreen", "Default Robot Click Handler") },
+    weatherDataState: State<String>
+
 ) {
     // 2. 添加一个状态来管理对话框的显示/隐藏
     var showRoleDialog by remember { mutableStateOf(false) }
@@ -263,7 +266,9 @@ fun HomeScreen(
 
     val currentRobotMessage = stringResource(R.string.robot_greeting_message) // 替换或从 ViewModel 获取
     // val currentTimeToDisplay = "10:30 AM" // 占位符时间或从 ViewModel 获取
-    val currentWeatherData = "晴转多云 25-32度" // 占位符天气或从 ViewModel 获取
+    // 以下是新增天气获取信息
+    val currentWeatherData by weatherDataState
+
     // --- VV 新增：实时时间状态管理 VV ---
     var currentTimeToDisplay by remember { mutableStateOf(getCurrentFormattedTime()) }
     LaunchedEffect(Unit) { // key1 为 Unit 表示这个 effect 只在 Composable 首次进入组合时运行，并在离开时取消
@@ -887,27 +892,32 @@ fun ZhiyunAssistantSection(
 @Composable
 fun HomeScreenLandscapePreview() {
     ZhiyunAgentRobotTheme {
-        // 直接调用 HomeScreen。
-        // HomeScreen 内部的 Scaffold 会负责创建 AppTopBar 和 AppBottomBar。
+        // ▼▼▼【核心修正】▼▼▼
+        // 1. 在这里创建一个“假的”State，专门用于UI预览。
+        //    它的值可以是一个写死的预览文本，例如 "晴 25℃"。
+        //    这个 fakeWeatherState 只在这个预览函数内部有效。
+        val fakeWeatherState = remember { mutableStateOf("晴 25℃") }
+
+        // 2. 在调用 HomeScreen 时，把这个“假的”State作为“通行证”传递进去。
         HomeScreen(
-            // 如果您的 HomeScreen Composable 函数需要任何参数来进行预览，
-            // 请在此处提供这些参数。
-            // 例如，如果 HomeScreen 需要一个 UserProfile 和一些点击回调：
-            // userProfile = UserProfile(name = "横屏预览用户", avatarResId = R.drawable.user_avatar),
-            // onOneTouchSosClick = { Log.d("Preview", "SOS clicked in HomeScreen Preview") },
-            // onGuideClick = { Log.d("Preview","Guide clicked in HomeScreen Preview") },
-            // onShoppingCartClick = { Log.d("Preview","ShoppingCart clicked") },
-            // onMemoClick = { Log.d("Preview","Memo clicked") },
-            // onStorageClick = { Log.d("Preview","Storage clicked") },
-            // onPlanReminderClick = { Log.d("Preview","PlanReminder clicked") },
-            // onMedicineReminderClick = { Log.d("Preview","MedicineReminder clicked") },
-            // onTodayReminderClick = { Log.d("Preview","TodayReminder clicked") },
-            // onAiBrainClick = { Log.d("Preview","AiBrain clicked") },
-            // onRepeatReminderClick = { Log.d("Preview","RepeatReminder clicked") },
-            // onDoctorClick = { Log.d("Preview","Doctor clicked") }
-            // 确保上面示例中的参数名和类型与您实际的 HomeScreen 函数定义一致。
-            // 如果 HomeScreen 不需要任何参数，则直接调用 HomeScreen() 即可。
+            weatherDataState = fakeWeatherState, // <-- 使用我们创建的假数据
+
+            // 保持您原来所有的 on...Click 回调为空实现，以确保预览能正常工作
+            // onMemoryShowcaseClick = { Log.d("Preview", "SOS clicked in HomeScreen Preview") },
+            onGuideClick = { Log.d("Preview","Guide clicked in HomeScreen Preview") },
+            onShoppingCartClick = { Log.d("Preview","ShoppingCart clicked") },
+            onMemoClick = { Log.d("Preview","Memo clicked") },
+            onStorageClick = { Log.d("Preview","Storage clicked") },
+            onPlanReminderClick = { Log.d("Preview","PlanReminder clicked") },
+            onMedicineReminderClick = { Log.d("Preview","MedicineReminder clicked") },
+            onTodayReminderClick = { Log.d("Preview","TodayReminder clicked") },
+            onAiBrainClick = { Log.d("Preview","AiBrain clicked") },
+            onRepeatReminderClick = { Log.d("Preview","RepeatReminder clicked") },
+            onDoctorClick = { Log.d("Preview","Doctor clicked") },
+            // 如果您的 HomeScreen 还有其他参数，也请一并补全
+            onRobotAvatarClicked = { Log.d("Preview", "Robot Avatar Clicked") } // 举例：补全可能缺失的回调
         )
+        // ▲▲▲【核心修正】▲▲▲
     }
 }
 

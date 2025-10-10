@@ -9,6 +9,7 @@ plugins {
     // id("org.jetbrains.kotlin.plugin.compose") version libs.versions.composeCompiler.get() // 或者直接写 "1.5.11"
     // id("org.jetbrains.kotlin.plugin.compose") version "1.5.8" // <--- 直接在这里应用并指定版本
 }
+val retrofitVersion = "2.9.0"
 
 android {
     namespace = "com.zhiyun.agentrobot" // <--- 修改这里！！！
@@ -67,6 +68,13 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation("androidx.localbroadcastmanager:localbroadcastmanager:1.1.0")
     implementation("io.coil-kt:coil-compose:2.6.0") //  请使用 Coil 的最新稳定版本
+    // Retrofit & OkHttp for network requests
+    implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
+    implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion") // Gson converter
+    implementation("com.squareup.okhttp3:okhttp:4.10.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.10.0") // Useful for logging network requests and responses
+
+
 
     // 1. AgentOS SDK 依赖 (来自文档)
     implementation("com.orionstar.agent:sdk:0.3.5-SNAPSHOT")

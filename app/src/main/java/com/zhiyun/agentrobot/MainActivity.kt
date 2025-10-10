@@ -1,9 +1,10 @@
 package com.zhiyun.agentrobot
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
+import android.content.pm.PackageManager
 import android.util.Log
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +21,18 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.zhiyun.agentrobot.ui.screens.HomeScreen
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
+import com.ainirobot.agent.AgentCore
+import com.ainirobot.agent.action.Action
+import com.ainirobot.agent.action.ActionExecutor
+import androidx.lifecycle.lifecycleScope // 非常重要，用于执行协程任务
+import com.zhiyun.agentrobot.data.TrafficRepository // 引入我们的“后勤部门”
+import kotlinx.coroutines.launch // 引入协程启动器
+import com.ainirobot.agent.PageAgent
+import com.ainirobot.agent.base.Parameter
+import com.ainirobot.agent.base.ParameterType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 
 // import com.ainirobot.agent.AgentCore // 如果您的 HomeScreen 或其他地方确实需要，再取消注释
 
@@ -31,102 +44,252 @@ class MainActivity : ComponentActivity() {
     private var isCameraPermissionGranted by mutableStateOf(false)
     private var isAgentSdkInitialized by mutableStateOf(false)
     private var isLoadingPermissions by mutableStateOf(true) // 用于初始权限检查和SDK加载
+    private lateinit var pageAgent: PageAgent // 改为 lateinit 初始化
+    private val trafficRepository = TrafficRepository()
+    private lateinit var tvWeather: TextView // 【确保这个变量已经定义】
+    private val weatherDataState: MutableState<String> = mutableStateOf("天气获取中...")
+
 
     // --- ActivityResultLaunchers 声明区 ---
-    private val requestRecordAudioLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                Log.d("MainActivity", "RECORD_AUDIO permission GRANTED by launcher")
-                isRecordAudioPermissionGranted = true
-                // 麦克风权限通过后，检查并请求摄像头权限
-                checkAndRequestCameraPermission()
-            } else {
-                Log.w("MainActivity", "RECORD_AUDIO permission DENIED by launcher")
-                isLoadingPermissions = false // 结束加载状态
-                // 您可以在这里添加UI提示，告知用户为何需要此权限
-            }
-        }
-
-    private val requestCameraLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                Log.d("MainActivity", "CAMERA permission GRANTED by launcher")
-                isCameraPermissionGranted = true
-                // 摄像头权限也通过后（此时麦克风应该已经授权），初始化 SDK
-                attemptInitializeAgentSDK()
-            } else {
-                Log.w("MainActivity", "CAMERA permission DENIED by launcher")
-                isLoadingPermissions = false // 结束加载状态
-                // 您可以在这里添加UI提示
-            }
-        }
-
-    // --- onCreate 方法 ---
-    override fun onCreate(savedInstanceState: Bundle?) {
-        Log.d("MainActivity", "Activity onCreate: START")
-        super.onCreate(savedInstanceState)
-
-        // --- 您可以把获取屏幕信息的代码放在这里 START ---
-        val displayMetrics = resources.displayMetrics
-        val densityDpi = displayMetrics.densityDpi
-        val density = displayMetrics.density // density factor
-        val screenWidthPx = displayMetrics.widthPixels
-        val screenHeightPx = displayMetrics.heightPixels
-        val screenWidthDp = screenWidthPx / density
-        val screenHeightDp = screenHeightPx / density
-
-        Log.i("MainActivityScreenInfo", "Density DPI: $densityDpi")
-        Log.i("MainActivityScreenInfo", "Density (factor): $density")
-        Log.i("MainActivityScreenInfo", "Screen Width (px): $screenWidthPx")
-        Log.i("MainActivityScreenInfo", "Screen Height (px): $screenHeightPx")
-        Log.i("MainActivityScreenInfo", "Screen Width (dp): $screenWidthDp")
-        Log.i("MainActivityScreenInfo", "Screen Height (dp): $screenHeightDp")
-        // --- 获取屏幕信息的代码放在这里 END ---
-
-
-
-
-        setContent {
-            Log.d("MainActivity", "setContent Composable lambda: ENTER")
-            ZhiyunAgentRobotTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    if (isAgentSdkInitialized) {
-                        Log.d("MainActivity", "UI: AgentSDK is initialized, rendering HomeScreen")
-                        HomeScreen()
-                    } else if (isLoadingPermissions) {
-                        Log.d("MainActivity", "UI: Loading permissions or SDK...")
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator()
-                                Spacer(Modifier.height(8.dp))
-                                Text("正在准备应用...")
-                            }
-                        }
-                    } else {
-                        Log.d("MainActivity", "UI: Permissions NOT fully granted or SDK NOT initialized, showing PermissionsScreen")
-                        // PermissionsScreen 现在直接接收成员函数作为 lambda
-                        PermissionsScreen(
-                            onGrantRecordAudio = { launchRecordAudioPermissionRequest() },
-                            onGrantCamera = { launchCameraPermissionRequest() },
-                            recordAudioGranted = isRecordAudioPermissionGranted,
-                            cameraGranted = isCameraPermissionGranted
-                        )
-                    }
+        private val requestRecordAudioLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+                if (isGranted) {
+                    Log.d("MainActivity", "RECORD_AUDIO permission GRANTED by launcher")
+                    isRecordAudioPermissionGranted = true
+                    // 麦克风权限通过后，检查并请求摄像头权限
+                    checkAndRequestCameraPermission()
+                } else {
+                    Log.w("MainActivity", "RECORD_AUDIO permission DENIED by launcher")
+                    isLoadingPermissions = false // 结束加载状态
+                    // 您可以在这里添加UI提示，告知用户为何需要此权限
                 }
             }
-            Log.d("MainActivity", "setContent Composable lambda: EXIT")
-        }
-        Log.d("MainActivity", "setContent: FINISHED")
 
-        // 应用启动时开始检查权限状态并按需请求
-        checkInitialPermissions()
-        Log.d("MainActivity", "Activity onCreate: FINISHED")
+        private val requestCameraLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+                if (isGranted) {
+                    Log.d("MainActivity", "CAMERA permission GRANTED by launcher")
+                    isCameraPermissionGranted = true
+                    // 摄像头权限也通过后（此时麦克风应该已经授权），初始化 SDK
+                    attemptInitializeAgentSDK()
+                } else {
+                    Log.w("MainActivity", "CAMERA permission DENIED by launcher")
+                    isLoadingPermissions = false // 结束加载状态
+                    // 您可以在这里添加UI提示
+                }
+            }
+
+
+        // --- onCreate 方法 ---
+        override fun onCreate(savedInstanceState: Bundle?) {
+            Log.d("MainActivity", "Activity onCreate: START")
+            super.onCreate(savedInstanceState)
+            // setContentView(R.layout.activity_main)
+
+            // 2. 严格按照“视图 -> 依赖 -> 配置 -> 运行”的顺序执行,调用视图初始化方法
+            // initViews()
+            initDependencies()
+
+            // --- 您可以把获取屏幕信息的代码放在这里 START ---
+            val displayMetrics = resources.displayMetrics
+            val densityDpi = displayMetrics.densityDpi
+            val density = displayMetrics.density // density factor
+            val screenWidthPx = displayMetrics.widthPixels
+            val screenHeightPx = displayMetrics.heightPixels
+            val screenWidthDp = screenWidthPx / density
+            val screenHeightDp = screenHeightPx / density
+
+            Log.i("MainActivityScreenInfo", "Density DPI: $densityDpi")
+            Log.i("MainActivityScreenInfo", "Density (factor): $density")
+            Log.i("MainActivityScreenInfo", "Screen Width (px): $screenWidthPx")
+            Log.i("MainActivityScreenInfo", "Screen Height (px): $screenHeightPx")
+            Log.i("MainActivityScreenInfo", "Screen Width (dp): $screenWidthDp")
+            Log.i("MainActivityScreenInfo", "Screen Height (dp): $screenHeightDp")
+
+            // --- 获取屏幕信息的代码放在这里 END -
+            // ▼▼▼ 在这里定义和注册我们的Action ▼▼▼
+            // defineAndRegisterActions()
+
+            setContent {
+                Log.d("MainActivity", "setContent Composable lambda: ENTER")
+                ZhiyunAgentRobotTheme {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        if (isAgentSdkInitialized) {
+                            Log.d(
+                                "MainActivity",
+                                "UI: AgentSDK is initialized, rendering HomeScreen"
+                            )
+                            HomeScreen(weatherDataState = weatherDataState)
+                        } else if (isLoadingPermissions) {
+                            Log.d("MainActivity", "UI: Loading permissions or SDK...")
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator()
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("正在准备应用...")
+                                }
+                            }
+                        } else {
+                            Log.d(
+                                "MainActivity",
+                                "UI: Permissions NOT fully granted or SDK NOT initialized, showing PermissionsScreen"
+                            )
+                            // PermissionsScreen 现在直接接收成员函数作为 lambda
+                            PermissionsScreen(
+                                onGrantRecordAudio = { launchRecordAudioPermissionRequest() },
+                                onGrantCamera = { launchCameraPermissionRequest() },
+                                recordAudioGranted = isRecordAudioPermissionGranted,
+                                cameraGranted = isCameraPermissionGranted
+                            )
+                        }
+                    }
+                }
+                Log.d("MainActivity", "setContent Composable lambda: EXIT")
+            }
+            Log.d("MainActivity", "setContent: FINISHED")
+
+            // 应用启动时开始检查权限状态并按需请求
+            checkInitialPermissions()
+            Log.d("MainActivity", "Activity onCreate: FINISHED")
+            updateHomepageWeather()
+        }
+
+    override fun onResume() {
+        super.onResume()
+        Log.d("MainActivity", "Activity onResume: Registering Actions and setting Objective.")
+        // 在 onResume 中调用，确保 PageAgent 处于活跃状态
+        defineAndRegisterActions()
     }
 
-    // --- 成员函数声明区 (确保这些函数在 MainActivity 类的花括号内，与 onCreate 并列) ---
+
+        // --- 成员函数声明区 (确保这些函数在 MainActivity 类的花括号内，与 onCreate 并列) ---
+
+     private fun defineAndRegisterActions() {
+         // === 【升级】作战单位1：天气查询Action ===
+
+         // 1. 定义Action执行时需要的参数
+         val cityParameter = Parameter(
+             name = "city", // 参数名叫 'city'
+             type = ParameterType.STRING, // 参数类型是字符串
+             desc = "用户想要查询的城市名称，例如'北京'、'上海'",
+             required = true // 这个参数是必须的！
+         )
+
+         // === 作战单位2：限行查询Action (我们暂时保持不变，作为对比) ===
+         val queryWeatherAction = Action(
+             name = "com.zhiyun.action.QUERY_WEATHER",
+             displayName = "查询天气",
+             desc = "查询指定城市当天的天气信息。",
+             // 2. 【核心升级】将参数描述注册到Action中
+             parameters = listOf(cityParameter),
+             executor = object : ActionExecutor {
+                 override fun onExecute(action: Action, params: Bundle?): Boolean {
+                     lifecycleScope.launch {
+                         try {
+                             // 3. 【核心升级】从params中获取大模型传来的城市名
+                             // 如果大模型没提供，我们就给一个默认值“北京”
+                             val city = params?.getString("city") ?: "北京"
+
+                             // 4. 将动态获取的城市名用于网络请求！
+                             val resultInfo = trafficRepository.getWeatherInfo(city)
+
+                             AgentCore.tts(resultInfo)
+                         } catch (e: Exception) {
+                             AgentCore.tts("抱歉，在执行天气查询时出错了。")
+                             e.printStackTrace()
+                         } finally {
+                             action.notify()
+                         }
+                     }
+                     return true
+                 }
+             }
+         )
+
+         // 2. 定义一个用于查询限行的Action
+         val queryRestrictionAction = Action(
+             name = "com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION", // Action的唯一名称
+             displayName = "查询限行", // 显示名称
+             desc = "查询指定城市当天的机动车尾号限行信息，如果用户没有说城市，就默认查询北京。", // 给大模型看的描述，告诉它这个Action能干什么
+             parameters = emptyList(), // 我们暂时不需要参数，后面可以扩展，给个为空，以便通过编译
+             executor = object : ActionExecutor {
+                 override fun onExecute(action: Action, params: Bundle?): Boolean {
+                     // 2. 在协程中执行耗时任务（网络请求）
+                     lifecycleScope.launch {
+                         try {
+                             // 3. 调用“后勤部门”获取数据
+                             val restrictionInfo = trafficRepository.getRestrictionInfo("beijing")
+
+                             // 4. 使用TTS播报结果
+                             AgentCore.tts(restrictionInfo)
+
+                         } catch (e: Exception) {
+                             // 异常处理，如果获取失败，也给用户一个反馈
+                             AgentCore.tts("抱歉，查询限行信息失败，请稍后再试。")
+                             e.printStackTrace() // 在后台打印错误日志，方便调试
+                         } finally {
+                             // 5. 无论成功还是失败，都必须通知Agent任务已结束
+                             action.notify()
+                         }
+                     }
+                     // 返回true，表示我们已经接管了这个任务
+                     return true
+                 }
+             }
+         )
+
+        // 将我们定义好的Action统一注册到PageAgent中
+         pageAgent.registerAction(queryWeatherAction)
+         pageAgent.registerAction(queryRestrictionAction)
+         // === 【升级】作战目标 ===
+         pageAgent.setObjective(
+             "你是一个生活助手。" +
+                     "当用户询问天气时，你应该从用户问题中提取'city'参数，并调用工具 'com.zhiyun.action.QUERY_WEATHER'。" +
+                     "如果用户没有明确说出城市，你应该默认使用'北京'。" +
+                     "当用户询问限行时，你应该调用工具 'com.zhiyun.action.QUERY_RESTRICTION'。"
+         )
+     }
+
+    // 这是新增的2个方法，专门用于异步获取天气并更新主页上的 TextView。
+    // 它使用 lifecycleScope 来确保协程的生命周期安全。
+    // */第一个新增如下
+    private fun initDependencies() {
+        pageAgent = PageAgent(this)
+        Log.d("MainActivity", "initDependencies: pageAgent initialized.")
+    }
+
+    //第二个新增如下
+    private fun updateHomepageWeather() {
+        // 使用 lifecycleScope 启动协程，它会与 Activity 的生命周期绑定
+        lifecycleScope.launch {
+            Log.d("MainActivity", "updateHomepageWeather: Starting weather update coroutine.")
+            // 1. 在后台线程中调用我们之前在 Repository 中新增的方法
+            val weatherInfo = trafficRepository.getWeatherInfoForHomepage("北京")
+
+            // 2. 切换回主线程来安全地更新UI组件
+            //  withContext(Dispatchers.Main) {
+            if (weatherInfo != null) {
+                // 3. 如果成功获取到数据，就更新 TextView 的文本
+                weatherDataState.value = "${weatherInfo.weatherText} ${weatherInfo.temperature}℃"
+                Log.d(
+                    "MainActivity",
+                    "updateHomepageWeather: State updated with: ${weatherDataState.value}"
+                )
+            } else {
+                weatherDataState.value = "天气获取失败"
+                Log.w(
+                    "MainActivity",
+                    "updateHomepageWeather: Failed to get weather info, State updated to error state.")
+            }
+        }
+    }
+
 
     private fun checkInitialPermissions() {
         isLoadingPermissions = true // 开始时总是标记为加载
