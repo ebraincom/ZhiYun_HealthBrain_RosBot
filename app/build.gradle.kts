@@ -73,6 +73,12 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion") // Gson converter
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.10.0") // Useful for logging network requests and responses
+    implementation("androidx.compose.runtime:runtime")
+    // 【核心修正 2/2】：为 delay() 函数添加 Kotlin Coroutines 核心库依赖
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3") // 建议使用较新且稳定的版本
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
+
 
 
 
