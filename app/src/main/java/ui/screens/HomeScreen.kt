@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,13 +29,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
@@ -80,8 +77,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog // <-- 1. 导入我们创建的对话框
 import android.content.Intent
 import com.zhiyun.agentrobot.ui.guide.GuideActivity
-import kotlin.math.abs
 // import androidx.compose.material3.Icon // 确保导入正确的Icon
+import androidx.annotation.DrawableRes // 需要这个注解来标记资源ID
 
 // import coil.compose.AsyncImage
 // import coil.request.ImageRequest
@@ -93,8 +90,8 @@ val AppBottomBarContentColor = Color.White
 
 // UserProfile Data Class
 data class UserProfile(
-    val name: String = "王阿姨",
-    val avatarResId: Int = R.drawable.user_avatar
+    val name: String = "王阿姨", // 提供一个默认名字，比如"访客"
+    @DrawableRes val avatarResId: Int = R.drawable.user_avatar// 提供一个默认头像的资源ID
 )
 
 // 定义颜色
@@ -222,7 +219,7 @@ fun contentColorFor(backgroundColor: Color): Color {
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    userProfile: UserProfile = UserProfile(),
+    userProfile: UserProfile,
     onOneTouchSosClick: () -> Unit = {},
     onGuideClick: () -> Unit = {},
     onShoppingCartClick: () -> Unit = {},
@@ -238,14 +235,15 @@ fun HomeScreen(
     onDoctorClick: () -> Unit = {},
     // 机器人点击回调
     onRobotAvatarClicked: () -> Unit = { Log.d("HomeScreen", "Default Robot Click Handler") },
-    weatherDataState: State<String>
-
+    weatherDataState: State<String>,
+    onMoreConsultClick: () -> Unit = {}
 ) {
+
+    val context = LocalContext.current
+    // 【第三步：使用正确的UserProfile】这里的UserProfile()现在明确指向data包下的真身！
+    // val currentUserProfile = UserProfile(name = "王阿姨")
     // 2. 添加一个状态来管理对话框的显示/隐藏
     var showRoleDialog by remember { mutableStateOf(false) }
-
-    // 3. 获取当前上下文，用于之后获取 Application 实例
-    val context = LocalContext.current
 
     // 4. 当 showRoleDialog 状态为 true 时，显示我们的对话框
     if (showRoleDialog) {
@@ -289,12 +287,16 @@ fun HomeScreen(
         Scaffold(
             topBar = {
                 AppTopBar(
-                    userProfile = userProfile,
+                    // userProfile = userProfile,
+                    userProfile = UserProfile(),
                     onUserProfileClick = { Log.d("HomeScreen", "User profile area clicked!") },
                     onOneTouchSosClick = onOneTouchSosClick,
                     onMoreConsultClick = {
-                        showRoleDialog = true
-                        Log.d("HomeScreen", "More Consult Button Clicked! Opening role selection dialog...")
+                        Log.d("HomeScreen", "更多咨询按钮被点击，准备跳转...")
+                        // 创建 Intent
+                        val intent = Intent(context, GuideActivity::class.java)
+                        // 启动 Activity
+                        context.startActivity(intent)
                     },
                     onGuideClick = {
                         Log.d("HomeScreen", "导览界面按钮被点击，准备跳转...")
@@ -900,7 +902,10 @@ fun HomeScreenLandscapePreview() {
 
         // 2. 在调用 HomeScreen 时，把这个“假的”State作为“通行证”传递进去。
         HomeScreen(
+
+            userProfile = UserProfile(name = "横屏预览用户", avatarResId = R.drawable.user_avatar),
             weatherDataState = fakeWeatherState, // <-- 使用我们创建的假数据
+
 
             // 保持您原来所有的 on...Click 回调为空实现，以确保预览能正常工作
             // onMemoryShowcaseClick = { Log.d("Preview", "SOS clicked in HomeScreen Preview") },
@@ -916,6 +921,7 @@ fun HomeScreenLandscapePreview() {
             onDoctorClick = { Log.d("Preview","Doctor clicked") },
             // 如果您的 HomeScreen 还有其他参数，也请一并补全
             onRobotAvatarClicked = { Log.d("Preview", "Robot Avatar Clicked") } // 举例：补全可能缺失的回调
+
         )
         // ▲▲▲【核心修正】▲▲▲
     }
@@ -926,6 +932,7 @@ fun HomeScreenLandscapePreview() {
 fun AppTopBarPreview() {
     ZhiyunAgentRobotTheme {
         AppTopBar(
+
                 userProfile = UserProfile(name = "横屏预览用户", avatarResId = R.drawable.user_avatar),
                 onUserProfileClick = { Log.d("Preview", "SOS clicked") },
                 onOneTouchSosClick = { Log.d("Preview", "SOS clicked") },
@@ -1068,7 +1075,7 @@ fun FeatureButtonAssistantPreview() {
 fun AppTopBarSizedPreview() {
     // MaterialTheme { // 应用您的主题
     AppTopBar(
-        userProfile = UserProfile(name = "李时珍", avatarResId = R.drawable.user_avatar),
+        userProfile = UserProfile(name = "王阿姨", avatarResId = R.drawable.user_avatar),
         onUserProfileClick = { Log.d("Preview", "User profile clicked in preview") }, // ！！！添加这个参数！！！
         onOneTouchSosClick = { Log.d("Preview", "SOS clicked in preview") },
         onMoreConsultClick = { Log.d("Preview", "MoreConsult clicked in preview") },

@@ -38,6 +38,11 @@ import com.zhiyun.agentrobot.data.Role
 import com.ainirobot.agent.AgentCore
 import com.ainirobot.agent.coroutine.AOCoroutineScope
 import kotlinx.coroutines.launch
+// 【新增导入】: 在文件顶部的import区域，加入以下我们即将用到的组件
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog
+
 
 class GuideActivity : ComponentActivity() {
     private lateinit var pageAgent: PageAgent
@@ -73,29 +78,6 @@ class GuideActivity : ComponentActivity() {
             Log.i("GuideActivity_LifeCycle", "onStart: Opening line TTS sent.")
         }
     }
-
-    override fun onDestroy() {
-        super.onDestroy() // 首先调用父类的onDestroy
-
-        // 从 applicationContext 中获取 MyApplication 实例
-        val myApp = applicationContext as MyApplication
-        val defaultRole = selectableRoles.find { it.name == "智芸康养小助手" }
-        // 【核心】: 调用我们完美的 switchAgentRole 方法，但这次传入的是全局默认角色！
-        // 这样就完成了灵魂的“恢复”操作。
-        // myApp.switchAgentRole(myApp.defaultRole)
-        if (defaultRole != null) {
-            myApp.switchAgentRole(defaultRole)
-            Log.i(
-                "GuideActivity_LifeCycle",
-                "onDestroy: Agent role restored to default '智芸康养小助手'."
-            )
-        } else {
-            Log.w(
-                "GuideActivity_LifeCycle",
-                "onDestroy: Could not find the default role '智芸康养小助手' to restore."
-            )
-        }
-    }
 }
 
 
@@ -105,13 +87,15 @@ fun GuidePage(pageAgent: PageAgent? = null) {
     val context = LocalContext.current
     val myApp = context.applicationContext as MyApplication
     // 1. 获取PageAgent实例
-    val pageAgent = remember { PageAgent(context as Activity) }
+    // val pageAgent = remember { PageAgent(context as Activity) }
 
     // 2.【精确制导】: 从全局数据源`selectableRoles`中，唯一地、精确地找出“智芸数据”角色
-    val zhiyunDataRole = remember { selectableRoles.find { it.name == "智芸数据" } }
+    // val zhiyunDataRole = remember { selectableRoles.find { it.name == "智芸数据" } }
 
     // 3. 状态持有: UI的选中项，初始为列表第一个
     var currentSelectedItem by remember { mutableStateOf(guideUiItems.first()) }
+    // 【新增】: 创建一个状态变量，用于控制角色选择对话框的显示与隐藏
+    var showRoleSelectionDialog by remember { mutableStateOf(false) }
 
     // 4.【灵魂注入核心】: 使用LaunchedEffect，在页面首次加载时，为Agent注入“智芸数据”的灵魂
     //    这个Effect只会在页面首次组合时运行一次，因为它的key(Unit)永远不会改变。
@@ -137,6 +121,30 @@ fun GuidePage(pageAgent: PageAgent? = null) {
         Log.i("GuideActivity_Compose", "OnTranscribeListener has been set.")
     }
 
+    if (showRoleSelectionDialog) {
+        RoleSelectionDialog(
+            onDismissRequest = {
+                // 当用户点击对话框外部或按返回键时，关闭对话框
+                showRoleSelectionDialog = false
+            },
+            onRoleSelected = { selectedRole ->
+                // 当用户选择了一个角色后执行以下操作：
+
+                // 1. 关闭对话框
+                showRoleSelectionDialog = false
+
+                // 2. 调用我们完美的切换方法，注入新灵魂！
+                myApp.switchAgentRole(selectedRole)
+
+                // 3. 激活新灵魂！让机器人用一句开场白来宣告自己的新身份
+                AOCoroutineScope.launch {
+                    val openingLine = "您好，我已经切换为${selectedRole.name}，很高兴为您服务。"
+                    AgentCore.tts(openingLine)
+                    Log.i("GuideActivity_Dialog", "Role switched to ${selectedRole.name} and activated.")
+                }
+            }
+        )
+    }
 
     val currentUserProfile = UserProfile(name = "王阿姨")
     ZhiyunAgentRobotTheme {

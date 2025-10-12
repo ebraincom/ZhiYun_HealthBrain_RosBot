@@ -30,8 +30,11 @@ import kotlinx.coroutines.launch // 引入协程启动器
 import com.ainirobot.agent.PageAgent
 import com.ainirobot.agent.base.Parameter
 import com.ainirobot.agent.base.ParameterType
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import android.content.Intent
+import com.zhiyun.agentrobot.data.selectableRoles
+import com.zhiyun.agentrobot.ui.guide.GuideActivity
+import com.zhiyun.agentrobot.ui.screens.UserProfile
+
 
 
 // import com.ainirobot.agent.AgentCore // 如果您的 HomeScreen 或其他地方确实需要，再取消注释
@@ -122,7 +125,18 @@ class MainActivity : ComponentActivity() {
                                 "MainActivity",
                                 "UI: AgentSDK is initialized, rendering HomeScreen"
                             )
-                            HomeScreen(weatherDataState = weatherDataState)
+                            HomeScreen(
+                                weatherDataState = weatherDataState,
+                                onMoreConsultClick = {
+                                    // 创建一个意图，明确指定要启动 GuideActivity
+                                    val intent = Intent(this@MainActivity, GuideActivity::class.java)
+                                    // 执行启动！
+                                    startActivity(intent)
+                                    Log.i("MainActivity_Action", "onMoreConsultClick: Starting GuideActivity.")
+                                },
+                                userProfile = UserProfile(name = "王阿姨") // 或者 UserProfile() 如果它有默认值
+
+                            )
                         } else if (isLoadingPermissions) {
                             Log.d("MainActivity", "UI: Loading permissions or SDK...")
                             Box(
@@ -167,6 +181,21 @@ class MainActivity : ComponentActivity() {
         defineAndRegisterActions()
     }
 
+    override fun onStart() {
+        super.onStart()
+        // 从 applicationContext 中获取 MyApplication 实例
+        val myApp = applicationContext as MyApplication
+        // 从全局角色列表中找出我们的默认角色 "智芸康养小助手"
+        val defaultRole = selectableRoles.find { it.name == "智芸康养小助手" }
+
+        if (defaultRole != null) {
+            // 【核心】: 每次回到主页，都无条件地、强制地用默认角色覆盖当前角色！
+            myApp.switchAgentRole(defaultRole)
+            Log.i("MainActivity_LifeCycle", "onStart: Agent role FORCE-RESTORED to default '智芸康养小助手'.")
+        } else {
+            Log.w("MainActivity_LifeCycle", "onStart: Could not find default role to restore!")
+        }
+    }
 
         // --- 成员函数声明区 (确保这些函数在 MainActivity 类的花括号内，与 onCreate 并列) ---
 
