@@ -13,10 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.zhiyun.agentrobot.data.Role
-import com.zhiyun.agentrobot.data.selectableRoles // 导入我们定义的可选角色列表
 
 /**
  * 角色选择对话框
@@ -26,7 +24,8 @@ import com.zhiyun.agentrobot.data.selectableRoles // 导入我们定义的可选
 @Composable
 fun RoleSelectionDialog(
     onDismissRequest: () -> Unit,
-    onRoleSelected: (Role) -> Unit
+    onRoleSelected: (Role) -> Unit,
+    rolesToDisplay: List<Role>
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
         Card(
@@ -52,7 +51,7 @@ fun RoleSelectionDialog(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp) // 设置每个选项之间的垂直间距
                 ) {
-                    items(selectableRoles) { role ->
+                    items(rolesToDisplay) { role ->
                         RoleItem(role = role, onRoleClick = {
                             onRoleSelected(role) // 当角色被点击时，调用回调函数
                         })

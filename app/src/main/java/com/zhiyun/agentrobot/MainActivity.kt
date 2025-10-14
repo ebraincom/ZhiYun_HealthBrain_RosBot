@@ -31,9 +31,13 @@ import com.ainirobot.agent.PageAgent
 import com.ainirobot.agent.base.Parameter
 import com.ainirobot.agent.base.ParameterType
 import android.content.Intent
+import androidx.compose.ui.semantics.text
 import com.zhiyun.agentrobot.data.selectableRoles
 import com.zhiyun.agentrobot.ui.guide.GuideActivity
 import com.zhiyun.agentrobot.ui.screens.UserProfile
+import com.ainirobot.agent.base.llm.Role as LLMRole // 使用别名避免与我们自己的Role类冲突
+import com.ainirobot.agent.OnTranscribeListener // 【100%正确的导入】
+import com.ainirobot.agent.base.Transcription // 【100%正确的导入】
 
 
 
@@ -87,11 +91,11 @@ class MainActivity : ComponentActivity() {
         override fun onCreate(savedInstanceState: Bundle?) {
             Log.d("MainActivity", "Activity onCreate: START")
             super.onCreate(savedInstanceState)
-            // setContentView(R.layout.activity_main)
-
-            // 2. 严格按照“视图 -> 依赖 -> 配置 -> 运行”的顺序执行,调用视图初始化方法
-            // initViews()
+            // 1. 初始化依赖 (pageAgent)
             initDependencies()
+            // 修复方案: 在 onCreate 中，为 pageAgent 设置监听器，接通听觉神经。
+            setupListeners()
+            // ▲▲▲【病灶 1 修复完毕】▲▲▲
 
             // --- 您可以把获取屏幕信息的代码放在这里 START ---
             val displayMetrics = resources.displayMetrics
@@ -173,30 +177,68 @@ class MainActivity : ComponentActivity() {
             Log.d("MainActivity", "Activity onCreate: FINISHED")
             updateHomepageWeather()
         }
+    // ▼▼▼【新增函数：为主页设置监听器】▼▼▼
+    // ▼▼▼【灾难性错误修复：重写整个`setupListeners`函数，确保语法100%正确】▼▼▼
+    private fun setupListeners() {
+        // 正确的匿名对象实现接口的语法
+        pageAgent.setOnTranscribeListener(object : OnTranscribeListener {
+            // 正确的 override fun onASRResult(...)
+            override fun onASRResult(transcription: Transcription): Boolean {
+                if (transcription.final) {
+                    Log.i("MainActivity", "User said on home page (final): ${transcription.text}")
+                }
+                // 在主页，我们希望AgentCore继续处理，所以返回false
+                return false
+            }
+
+            // 正确的 override fun onTTSResult(...)
+            override fun onTTSResult(transcription: Transcription): Boolean {
+                // 主页上由Action触发的TTS，我们通常不需要在这里处理，所以返回false
+                return false
+            }
+        })
+        Log.i("MainActivity", "OnTranscribeListener has been set for home page with CORRECT syntax.")
+    }
+    // ▲▲▲【灾难性错误修复完毕】▲▲▲
+
 
     override fun onResume() {
         super.onResume()
-        Log.d("MainActivity", "Activity onResume: Registering Actions and setting Objective.")
-        // 在 onResume 中调用，确保 PageAgent 处于活跃状态
-        defineAndRegisterActions()
-    }
+        // 增加安全检查，如果SDK未就绪，则不执行任何Agent操作
+        if (!isAgentSdkInitialized) return
 
+        Log.i("MainActivity_King", "onResume: The King is Back! Setting up Agent for Home Page...")
+
+        // 步骤1. 【灵魂注入】无论从哪个页面回来，都强制恢复默认角色
+        val appAgent = (applicationContext as MyApplication).appAgent
+        val defaultRole = selectableRoles.find { it.name == "智芸康养小助手" }
+        if (defaultRole != null) {
+            appAgent.setPersona(defaultRole.persona)
+            appAgent.setObjective(defaultRole.objective) // 设置全局的高级目标
+            Log.i("MainActivity_King", "SUCCESS: Default role '${defaultRole.name}' soul has been restored.")
+        } else {
+            Log.e("MainActivity_King", "FATAL: Default role not found!")
+        }
+
+        // 步骤2. 【指令下达】重新为PageAgent注册工具和“战术级”使用说明
+        defineAndRegisterActions()
+
+        // 步骤3. 【王者归来】这才是唯一正确的模式！让LLM总司令全权指挥！
+        AgentCore.isDisablePlan = false
+        Log.i("MainActivity_King", "CRITICAL: Agent mode set to FULLY ACTIVE (isDisablePlan=false). LLM is in command!")
+
+        // 步骤4. 【激活武器】解锁所有主页工具
+        // pageAgent.unblockAllActions()
+    }
+    // ▲▲▲【修改结束】▲▲▲
+
+
+    // ▲▲▲【修改结束】▲▲▲
+    // 以下onStart此方法不再负责设置角色或模式，这些核心任务已移至 onResume。
     override fun onStart() {
         super.onStart()
-        // 从 applicationContext 中获取 MyApplication 实例
-        val myApp = applicationContext as MyApplication
-        // 从全局角色列表中找出我们的默认角色 "智芸康养小助手"
-        val defaultRole = selectableRoles.find { it.name == "智芸康养小助手" }
-
-        if (defaultRole != null) {
-            // 【核心】: 每次回到主页，都无条件地、强制地用默认角色覆盖当前角色！
-            myApp.switchAgentRole(defaultRole)
-            Log.i("MainActivity_LifeCycle", "onStart: Agent role FORCE-RESTORED to default '智芸康养小助手'.")
-        } else {
-            Log.w("MainActivity_LifeCycle", "onStart: Could not find default role to restore!")
-        }
+        Log.i("MainActivity_King", "onStart: Lifecycle event.")
     }
-
         // --- 成员函数声明区 (确保这些函数在 MainActivity 类的花括号内，与 onCreate 并列) ---
 
      private fun defineAndRegisterActions() {
@@ -278,12 +320,17 @@ class MainActivity : ComponentActivity() {
          pageAgent.registerAction(queryRestrictionAction)
          // === 【升级】作战目标 ===
          pageAgent.setObjective(
-             "你是一个生活助手。" +
-                     "当用户询问天气时，你应该从用户问题中提取'city'参数，并调用工具 'com.zhiyun.action.QUERY_WEATHER'。" +
-                     "如果用户没有明确说出城市，你应该默认使用'北京'。" +
-                     "当用户询问限行时，你应该调用工具 'com.zhiyun.action.QUERY_RESTRICTION'。"
+             "你的身份是'智芸康养小助手'，你的首要任务是与用户进行友好、有帮助的对话。" +
+                     "但是，你有两项特殊任务需要优先处理：\n" +
+                     "1. 当用户的意图明确是'查询天气'时，你必须优先调用'com.zhiyun.action.QUERY_WEATHER'工具。如果用户没有说城市，就默认是'北京'。\n" +
+                     "2. 当用户的意图明确是'查询限行'时，你必须优先调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
+                     "如果用户的意图与这两个工具无关，你就以'智芸康养小助手'的身份与他自由闲聊。"
          )
+         Log.i("MainActivity_King", "Actions registered and the ULTIMATE objective has been set.")
      }
+    // ▲▲▲【修改结束】▲▲▲
+
+
 
     // 这是新增的2个方法，专门用于异步获取天气并更新主页上的 TextView。
     // 它使用 lifecycleScope 来确保协程的生命周期安全。

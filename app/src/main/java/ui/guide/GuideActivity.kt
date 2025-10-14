@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,126 +21,184 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.zhiyun.agentrobot.ui.common.AppScaffold
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.data.UserProfile // 假设有一个通用的UserProfile数据类
-import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.get
 import com.zhiyun.agentrobot.data.selectableRoles
 import com.ainirobot.agent.PageAgent
-import android.app.Activity // 【关键导入1】: 需要导入Activity
 import android.util.Log
-import androidx.compose.ui.semantics.text
-import com.ainirobot.agent.OnTranscribeListener
-import com.ainirobot.agent.base.Transcription
-import com.ainirobot.agent.base.Parameter
-import com.ainirobot.agent.base.ParameterType
-import com.zhiyun.agentrobot.MyApplication
-import com.zhiyun.agentrobot.data.Role
 import com.ainirobot.agent.AgentCore
-import com.ainirobot.agent.coroutine.AOCoroutineScope
-import kotlinx.coroutines.launch
 // 【新增导入】: 在文件顶部的import区域，加入以下我们即将用到的组件
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog
-
+import com.zhiyun.agentrobot.ChatActivity // 【关键导入】
+import android.content.Intent
+import com.zhiyun.agentrobot.ui.guide.GuideContentScreen
+import com.ainirobot.agent.OnTranscribeListener // 【新增导入】
+import com.ainirobot.agent.action.Action // 【新增导入】
+import com.ainirobot.agent.action.ActionExecutor // 【新增导入
+import com.ainirobot.agent.action.Actions // 【新增导入】
+import com.ainirobot.agent.base.Parameter // 【新增导入
+import com.ainirobot.agent.base.ParameterType // 【新增导入】
+import com.ainirobot.agent.base.Transcription // 【新增导入】
+import com.zhiyun.agentrobot.MyApplication // 【新增导入】
+import com.zhiyun.agentrobot.data.Role // 【新增导入】
+import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 
 class GuideActivity : ComponentActivity() {
     private lateinit var pageAgent: PageAgent
-    private val zhiyunDataRole: Role? by lazy {
-        selectableRoles.find { it.name == "智芸数据" }
-    }
+    private val TAG = "GuideActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.i(TAG, "onCreate: Initializing as a 'Role Selection' page.")
+        // 1. 初始化PageAgent (完全遵从官方做法)
         pageAgent = PageAgent(this)
-        zhiyunDataRole?.let { role ->
-            (applicationContext as MyApplication).switchAgentRole(role)// 只设定，不清除上下文
-            Log.i("GuideActivity_LifeCycle", "onCreate: switchAgentRole called for ${role.name}")
-        }
+        // pageAgent.blockAllActions()
+        pageAgent.setObjective("我的首要目的是催促用户选择一个角色，进入体验")
+        // 1. 注册核心的“选择角色”Action，赋予语音选角能力
+        defineAndRegisterActions()
+
+
+        // 2.【废除】不再在onCreate中尝试切换任何角色。
+        //    此Activity的灵魂就是“引导选择”，而不是扮演某个角色。
+
         setContent {
             ZhiyunAgentRobotTheme {
-                GuidePage(pageAgent)
+                // 将pageAgent传递给UI层，尽管在这个新架构下，UI层几乎用不到它
+                GuidePage()
             }
         }
+    }
+    // ▼▼▼【一：补全缺失的函数定义】
+    private fun defineAndRegisterActions() {
+        // 1. 定义语音选择角色的Action
+        val selectRoleAction = Action(
+            "com.zhiyun.action.SELECT_ROLE", // Action唯一ID
+            "选择角色", // Action显示名
+            "当用户说'选择某个角色'时，使用此工具来选择一个角色并进入对话", // 给大模型看的描述
+            parameters = listOf(
+                Parameter(
+                    "role_name", // 参数名
+                    ParameterType.STRING, // 参数类型
+                    "用户想要选择的角色名称，必须是'智芸康养小助手', '医博士', '药博士'等中的一个", // 参数描述
+                    true // 必须参数
+                )
+            ),
+            executor = object : ActionExecutor {
+                override fun onExecute(action: Action, params: Bundle?): Boolean {
+                    // 【军规二】
+                    val recognizedRoleName = params?.getString("role_name")?.trim() // 去除语音识别可能带来的空格
+                    Log.i(TAG, "SELECT_ROLE Action triggered. Recognized name: '$recognizedRoleName'")
+
+                    if (!recognizedRoleName.isNullOrEmpty()) {
+                        // 【健壮性加固】使用包含(contains)而不是等于(==)来查找，提高模糊匹配成功率
+                        val selectedRole = selectableRoles.find { it.name.contains(recognizedRoleName) }
+
+                        if (selectedRole != null && (selectedRole.name == "智芸数据" || selectedRole.name == "医博士")) {
+                            Log.i(TAG, "Permitted role '${selectedRole.name}' found! Injecting soul before launch...")
+
+                            // ▼▼▼【核心：先注入灵魂，再启动肉体！】▼▼▼
+                            val appAgent = (application as MyApplication).appAgent
+                            appAgent.setPersona(selectedRole.persona)
+                            appAgent.setObjective(selectedRole.objective)
+                            Log.i(TAG, "SUCCESS: Soul of '${selectedRole.name}' has been injected into AppAgent.")
+
+                            // 现在可以安全启动ChatActivity了
+                            launchChatActivity(selectedRole)
+                            // ▲▲▲【核心修正完毕】▲▲▲
+                            // 启动聊天页后，立刻关闭当前的导览页，彻底杜绝白屏幽灵！
+                            finish()
+                            Log.i(TAG, "GuideActivity is finishing to prevent ghost screen.")
+
+                        } else {
+                            // 如果用户说了其他角色（比如智芸康养小助手），礼貌地拒绝
+                            (application as MyApplication).safeTts("抱歉，在这个页面，我们只支持选择智芸数据或医博士。")
+                            Log.w(TAG, "Role '$recognizedRoleName' is not a permitted choice on this page.")
+                        }
+                    } else {
+                        (application as MyApplication).safeTts("抱歉，我没听清您想选择哪个角色。")
+                    }
+                    action.notify()
+                    return true
+                }
+            }
+        )
+        pageAgent.registerAction(selectRoleAction)
+        Log.i(TAG, "'com.zhiyun.action.SELECT_ROLE' Action has been registered.")
+
+        // 2.【罪行二：使用100%正确的SAY Action引用】
+        pageAgent.registerAction(Actions.SAY)
+        Log.i(TAG, "The correct 'Actions.SAY' has been registered.")
     }
 
     override fun onStart() {
         super.onStart()
-        Log.i("GuideActivity_LifeCycle", "onStart: Clearing context and activating new role...")
-        AgentCore.clearContext() // 清除上下文
-        AgentCore.stopTTS()      // 停止可能正在播放的上一页面的TTS
-        // 主动让机器人说一句开场白，以激活并展现新角色
-        AOCoroutineScope.launch {
-            // 增加一个小的延迟，确保 Agent 状态已完全就绪
-            kotlinx.coroutines.delay(200)
-            val openingLine = "您好，我是智芸数据全能助手，很高兴为您服务。"
-            AgentCore.tts(openingLine)
-            Log.i("GuideActivity_LifeCycle", "onStart: Opening line TTS sent.")
-        }
+        Log.i(TAG, "onStart: Holding 'Role Selection' inauguration ceremony.")
+
+        // 1. 清理战场，确保从一个干净的状态开始
+        AgentCore.stopTTS()
+        AgentCore.clearContext()
+
+        // 2. 告知AgentCore当前页面的上下文是“角色列表”，以优化语音识别 (关键！)
+        val roleInfoForNLU = "智芸数据\n医博士" // 只把允许选择的角色名传给NLU
+        AgentCore.uploadInterfaceInfo(roleInfoForNLU)
+        Log.d(TAG, "onStart: Uploaded PERMITTED role names to AgentCore for NLU optimization: [${roleInfoForNLU.replace("\n", ", ")}]")
+
+        // 3. 设定为主动引导模式 (关键！)
+        AgentCore.isDisablePlan = false
+        Log.i(TAG, "onStart: Interaction mode set to ACTIVE (isDisablePlan=false).")
+
+        // 4. 发表引导语 (如果需要的话，现在可以取消注释)
+        // AgentCore.tts("请选择您要体验的角色。")
+        val ttsMessage = "在这里，您可以选择体验我们的特色角色：智芸数据或医博士。请对我说，选择智芸数据。"
+        (application as MyApplication).safeTts(ttsMessage)
+        Log.i(TAG, "Exclusive role selection TTS guide sent: $ttsMessage")
+        // ▲▲▲【修复完毕】▲▲▲
     }
-}
+    // ▼▼▼【精确安装位置：就是这里！】▼▼▼
+    /**
+     * 统一的、安全的启动ChatActivity的方法
+     */
+    fun launchChatActivity(role: Role) {
+        Log.i(TAG, "Launching ChatActivity for role: '${role.name}'")
+        val intent = Intent(this, ChatActivity::class.java).apply {
+            putExtra("role", role)
+        }
+        startActivity(intent)
+    }
+    // ▲▲▲【安装完毕】▲▲▲
+
+} // <--- GuideActivity 类的结束花括号
+
+
 
 
 // ---【第三部分：Composable 函数 GuidePage】---
 @Composable
 fun GuidePage(pageAgent: PageAgent? = null) {
     val context = LocalContext.current
-    val myApp = context.applicationContext as MyApplication
-    // 1. 获取PageAgent实例
-    // val pageAgent = remember { PageAgent(context as Activity) }
-
-    // 2.【精确制导】: 从全局数据源`selectableRoles`中，唯一地、精确地找出“智芸数据”角色
-    // val zhiyunDataRole = remember { selectableRoles.find { it.name == "智芸数据" } }
-
-    // 3. 状态持有: UI的选中项，初始为列表第一个
-    var currentSelectedItem by remember { mutableStateOf(guideUiItems.first()) }
-    // 【新增】: 创建一个状态变量，用于控制角色选择对话框的显示与隐藏
     var showRoleSelectionDialog by remember { mutableStateOf(false) }
+    var currentSelectedItem by remember { mutableStateOf(guideUiItems.first()) }
 
-    // 4.【灵魂注入核心】: 使用LaunchedEffect，在页面首次加载时，为Agent注入“智芸数据”的灵魂
-    //    这个Effect只会在页面首次组合时运行一次，因为它的key(Unit)永远不会改变。
-    LaunchedEffect(pageAgent) { // key 从 Unit 改为 pageAgent
-        pageAgent?.setOnTranscribeListener(object : OnTranscribeListener {
-            override fun onASRResult(transcription: Transcription): Boolean {
-                if (transcription.final) {
-                    (context as? Activity)?.runOnUiThread {
-                        Toast.makeText(
-                            context,
-                            "听到您说: ${transcription.text}",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-                return false
-            }
 
-            override fun onTTSResult(transcription: Transcription): Boolean {
-                return false
-            }
-        })
-        Log.i("GuideActivity_Compose", "OnTranscribeListener has been set.")
-    }
-
+    // 【重要】: 检查对话框是否应该显示
     if (showRoleSelectionDialog) {
         RoleSelectionDialog(
-            onDismissRequest = {
-                // 当用户点击对话框外部或按返回键时，关闭对话框
-                showRoleSelectionDialog = false
-            },
+            rolesToDisplay = selectableRoles,
+            onDismissRequest = { showRoleSelectionDialog = false },
             onRoleSelected = { selectedRole ->
-                // 当用户选择了一个角色后执行以下操作：
-
-                // 1. 关闭对话框
+                // ▼▼▼【最终的、决定性的、100%基于官方圣经的核心修正！】▼▼▼
                 showRoleSelectionDialog = false
+                Log.i("GuidePage", "User selected '${selectedRole.name}'. Preparing to launch ChatActivity.")
 
-                // 2. 调用我们完美的切换方法，注入新灵魂！
-                myApp.switchAgentRole(selectedRole)
+                // 1. 创建一个指向我们新的、专门聊天的 ChatActivity 的 Intent
+                val intent = Intent(context, ChatActivity::class.java)
 
-                // 3. 激活新灵魂！让机器人用一句开场白来宣告自己的新身份
-                AOCoroutineScope.launch {
-                    val openingLine = "您好，我已经切换为${selectedRole.name}，很高兴为您服务。"
-                    AgentCore.tts(openingLine)
-                    Log.i("GuideActivity_Dialog", "Role switched to ${selectedRole.name} and activated.")
-                }
+                // 2. 将用户选择的 Role 对象 (必须是 Parcelable) 打包到 Intent 中
+                //    官方圣经中使用的 key 是 "role"
+                intent.putExtra("role", selectedRole)
+
+                // 3. 启动新的 Activity，将控制权完全交出去
+                context.startActivity(intent)
+                Log.i("GuidePage", "startActivity(ChatActivity) called successfully.")
+                // ▲▲▲【核心修正结束】▲▲▲
             }
         )
     }
@@ -156,9 +213,8 @@ fun GuidePage(pageAgent: PageAgent? = null) {
             onOneTouchSosClick = {
                 Toast.makeText(context, "点击了一键呼叫", Toast.LENGTH_SHORT).show()
             },
-            onMoreConsultClick = {
-                Toast.makeText(context, "点击了更多咨询", Toast.LENGTH_SHORT).show()
-            },
+            onMoreConsultClick ={
+                Toast.makeText(context, "请点击屏幕中央的选项进行选择", Toast.LENGTH_SHORT).show() },
             // ... (所有 on...Click 回调保持不变) ...
             onGuideClick = {
                 Toast.makeText(context, "当前已在导览页面", Toast.LENGTH_SHORT).show()

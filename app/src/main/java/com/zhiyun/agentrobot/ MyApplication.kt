@@ -14,7 +14,6 @@ import com.ainirobot.agent.base.ActionResult
 import com.ainirobot.agent.base.ActionStatus
 import com.zhiyun.agentrobot.data.Role // <-- 1. 导入我们创建的 Role 类
 import com.zhiyun.agentrobot.data.defaultRole // <-- 2. 导入我们定义的 defaultRole
-import kotlinx.coroutines.launch
 
 class MyApplication : Application() {
     // 【修改1】: 将 appAgentInstance 重命名为 appAgent，并设为私有 setter
@@ -33,6 +32,18 @@ class MyApplication : Application() {
             "Application onCreate: FINISHED (AppAgent will be initialized later)"
         )
     }
+    fun safeTts(text: String, timeoutMillis: Long = 0) {
+        // 在这里，我们暂时不做isSdkInitialized的检查，以简化问题
+        // 直接调用AgentCore.tts()，因为此时我们的核心问题是方法引用，而不是SDK初始化状态
+        // isSdkInitialized 的检查我们可以在后续版本中再加回来
+        if (timeoutMillis > 0) {
+            AgentCore.tts(text, timeoutMillis)
+        } else {
+            AgentCore.tts(text)
+        }
+        Log.i("MyApplication_SafeTTS", "TTS request sent: '$text'")
+    }
+
 
     fun initializeAgentSDK() {
         Log.d(TAG, "MyApplication: Attempting to initialize AgentSDK...")

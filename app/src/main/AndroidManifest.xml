@@ -96,6 +96,12 @@
             android:theme="@style/Theme.ZhiYun_AgentRobot">
         </activity>
 
+        <activity
+            android:name=".ChatActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ZhiYun_AgentRobot" />
+        <!-- ▲▲▲【核心修正结束】▲▲▲ -->
+
 
     </application>
 

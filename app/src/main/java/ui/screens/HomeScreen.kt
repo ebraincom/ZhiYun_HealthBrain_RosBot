@@ -79,6 +79,7 @@ import android.content.Intent
 import com.zhiyun.agentrobot.ui.guide.GuideActivity
 // import androidx.compose.material3.Icon // 确保导入正确的Icon
 import androidx.annotation.DrawableRes // 需要这个注解来标记资源ID
+import com.zhiyun.agentrobot.data.selectableRoles
 
 // import coil.compose.AsyncImage
 // import coil.request.ImageRequest
@@ -248,6 +249,7 @@ fun HomeScreen(
     // 4. 当 showRoleDialog 状态为 true 时，显示我们的对话框
     if (showRoleDialog) {
         RoleSelectionDialog(
+            rolesToDisplay = selectableRoles,
             onDismissRequest = {
                 showRoleDialog = false // 点击对话框外部或按返回键时，关闭对话框
             },
@@ -256,7 +258,7 @@ fun HomeScreen(
                 val application = context.applicationContext as MyApplication
                 application.switchAgentRole(selectedRole) // 调用 Application 中的方法切换角色
                 showRoleDialog = false // 完成后，关闭对话框
-            }
+            },
         )
     }
 
