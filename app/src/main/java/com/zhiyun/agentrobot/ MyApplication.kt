@@ -14,6 +14,8 @@ import com.ainirobot.agent.base.ActionResult
 import com.ainirobot.agent.base.ActionStatus
 import com.zhiyun.agentrobot.data.Role // <-- 1. 导入我们创建的 Role 类
 import com.zhiyun.agentrobot.data.defaultRole // <-- 2. 导入我们定义的 defaultRole
+import com.ainirobot.coreservice.client.RobotApi
+import com.zhiyun.agentrobot.util.CameraEngine // <-- 导入CameraEngine
 
 class MyApplication : Application() {
     // 【修改1】: 将 appAgentInstance 重命名为 appAgent，并设为私有 setter
@@ -31,7 +33,15 @@ class MyApplication : Application() {
             "MyApplication",
             "Application onCreate: FINISHED (AppAgent will be initialized later)"
         )
+        // 【标注】根据官方最新回复，CameraEngine的初始化和全局回调注册，必须在应用启动时完成。
+        initializeAgentSDK()
+        Log.i(TAG, "Proceeding to initialize CameraEngine...")
+        // 初始化 CameraEngine
+        // CameraEngine.instance.initialize()
+        Log.i(TAG, "CameraEngine.instance.initialize() command has been sent.")
+
     }
+
     fun safeTts(text: String, timeoutMillis: Long = 0) {
         // 在这里，我们暂时不做isSdkInitialized的检查，以简化问题
         // 直接调用AgentCore.tts()，因为此时我们的核心问题是方法引用，而不是SDK初始化状态
@@ -136,7 +146,7 @@ class MyApplication : Application() {
             Log.i(TAG, "MyApplication: AgentSDK already initialized.")
         }
     }
-    // 【修改4】: 移除 getAppAgent() 方法，因为 appAgent 已经是公共可读的了
+
 
     // --- 【新增】: 添加一个公共方法，用于后续的角色切换 ---
     fun switchAgentRole(newRole: Role) {

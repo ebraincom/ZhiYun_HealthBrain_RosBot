@@ -38,17 +38,23 @@ fun GuideContentScreen(
     modifier: Modifier = Modifier,
     items: List<GuidePageUiItem>,
     selectedItem: GuidePageUiItem,
-    onItemSelected: (GuidePageUiItem) -> Unit
+    onItemSelected: (GuidePageUiItem) -> Unit,
+    onPhotoClick: () -> Unit //  <-- 【新增参数】专门负责拍照按钮的点击事件
+
 ) {
     val pagerState = rememberPagerState(pageCount = { items.size })
 
     // --- 交互逻辑 (保持不变) ---
     LaunchedEffect(selectedItem) {
         val selectedIndex = items.indexOf(selectedItem)
-        if (selectedIndex != -1) { pagerState.animateScrollToPage(selectedIndex) }
+        if (selectedIndex != -1) {
+            pagerState.animateScrollToPage(selectedIndex)
+        }
     }
     LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
-        if (!pagerState.isScrollInProgress) { onItemSelected(items[pagerState.currentPage]) }
+        if (!pagerState.isScrollInProgress) {
+            onItemSelected(items[pagerState.currentPage])
+        }
     }
     LaunchedEffect(key1 = Unit) {
         while (true) {
@@ -70,9 +76,9 @@ fun GuideContentScreen(
             modifier = Modifier
                 .width(1920.dp) // 工作区背景宽度拉通
                 .height(830.dp)  // 1080 - 113(头) - 137(底) = 830
-                //.align(Alignment.TopCenter) // 顶部对齐
-                //.offset(y = 113.dp) // 向下偏移头部高度
-                //.background(Color.White.copy(alpha = 0.2f)) // 用半透明白色标识背景区，便于调试
+            //.align(Alignment.TopCenter) // 顶部对齐
+            //.offset(y = 113.dp) // 向下偏移头部高度
+            //.background(Color.White.copy(alpha = 0.2f)) // 用半透明白色标识背景区，便于调试
         ) {
 
             // 第三层: “内容组合容器”，用于将所有内容组合并居中
@@ -106,8 +112,14 @@ fun GuideContentScreen(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         repeat(pagerState.pageCount) { iteration ->
-                            val color = if (pagerState.currentPage == iteration) Color.White else Color.White.copy(alpha = 0.5f)
-                            Box(modifier = Modifier.padding(horizontal = 4.dp).clip(CircleShape).background(color).size(12.dp))
+                            val color =
+                                if (pagerState.currentPage == iteration) Color.White else Color.White.copy(
+                                    alpha = 0.5f
+                                )
+                            Box(
+                                modifier = Modifier.padding(horizontal = 4.dp).clip(CircleShape)
+                                    .background(color).size(12.dp)
+                            )
                         }
                     }
                 }
@@ -126,7 +138,17 @@ fun GuideContentScreen(
                             text = item.name,
                             iconResId = item.iconResId,
                             isSelected = (item.name == selectedItem.name),
-                            onClick = { onItemSelected(item) }
+                            // ▼▼▼【最终、唯一的关键修正】▼▼▼
+                            onClick = {
+                                // 判断当前点击的是哪个按钮
+                                if (item.name == "表情包合影") {
+                                    // 如果是“表情包合影”，则调用专属的拍照回调！
+                                    onPhotoClick()
+                                } else {
+                                    // 如果是其他按钮，则只调用通用的选中状态更新回调。
+                                    onItemSelected(item)
+                                }
+                            }
                         )
                     }
                 }
@@ -134,6 +156,7 @@ fun GuideContentScreen(
         }
     }
 }
+
 
 // ... GuideButton Composable 保持不变...
 
@@ -187,6 +210,8 @@ private fun GuideButton(
     }
 }
 
+// 文件路径: app/src/main/java/com/zhiyun/agentrobot/ui/guide/GuideContentScreen.kt
+
 // 预览函数，方便您在Android Studio中直接查看UI效果，无需运行到真机
 @Preview(widthDp = 1920, heightDp = 1080)
 @Composable
@@ -196,13 +221,16 @@ fun GuideContentScreenPreview() {
         Box(modifier = Modifier.background(Color(color = 0xFFF0F4FF))) {
             // 为预览函数提供临时的、“写死的”参数
             GuideContentScreen(
-                items = guideUiItems, // 1. 【补上】使用我们定义好的假数据列表
-                selectedItem = guideUiItems.first(), // 2. 【补上】默认选中第一项
-                onItemSelected = { } // 3. 【补上】提供一个空的点击回调，因为在预览中点击无效
+                items = guideUiItems,
+                selectedItem = guideUiItems.first(),
+                onItemSelected = { },
+                // ▼▼▼【遗漏修正 3/3】为预览函数补上新的参数，并提供一个空实现▼▼▼
+                onPhotoClick = { } // 因为在预览中点击拍照按钮是无效的
             )
         }
     }
 }
+
 
 
 

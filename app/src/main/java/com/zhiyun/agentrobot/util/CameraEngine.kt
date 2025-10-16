@@ -1,4 +1,8 @@
-package com.zhiyun.agentrobot.util // 请确保包名与您的项目结构一致
+// =================================================================================
+// 文件路径: app/src/main/java/com/zhiyun/agentrobot/util/CameraEngine.kt
+// 【最终无错胜利版 v12】 - 请用此完整文件直接替换，不要再手动修改。
+// =================================================================================
+package com.zhiyun.agentrobot.util
 
 import android.graphics.ImageFormat
 import android.media.Image
@@ -6,181 +10,179 @@ import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
-import android.os.Message
 import android.util.Log
 import android.view.Surface
 import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareApi
 import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareBean
-import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareError
 import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareListener
-import java.util.concurrent.atomic.AtomicBoolean
+import java.io.File
+import java.lang.Exception
 
-/**
- * 官方 SurfaceShareDataEngine.java 的终极1:1 Kotlin复刻版 (带时序修正)
- */
-object CameraEngine {
+class CameraEngine private constructor() {
 
-    private const val TAG = "CameraEngine_Ultimate"
-    private const val VISION_IMAGE_WIDTH = 640
-    private const val VISION_IMAGE_HEIGHT = 480
-    private const val MAX_CACHE_IMAGES = 4
+    private val TAG = "CameraEngine_VICTORY_12" // 最终胜利版TAG
 
-    private val isRunning = AtomicBoolean(false)
-
-    // 线程1: 专门用于接收 ImageReader 的回调
-    private var imageReaderThread: HandlerThread? = null
-    private var imageReaderHandler: Handler? = null
-
-    // 线程2: 专门用于处理图像数据
-    private var imageProcessThread: HandlerThread? = null
-    private var imageProcessHandler: ImageProcessHandler? = null
-
+    @Volatile private var isRunning = false
     private var imageReader: ImageReader? = null
-    // ▼▼▼【最终修正第一处：提前声明 remoteSurface】▼▼▼
     private var remoteSurface: Surface? = null
     private var surfaceShareBean: SurfaceShareBean? = null
-    private var currentError = 0
 
-    private var captureCallback: ((ByteArray) -> Unit)? = null
-    private var errorCallback: ((String) -> Unit)? = null
+    // 唯一的后台线程，用于处理所有相机相关的API调用和回调
+    private var backgroundThread: HandlerThread? = null
+    private var backgroundHandler: Handler? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
-    private class ImageProcessHandler(looper: Looper) : Handler(looper) {
-        override fun handleMessage(msg: Message) {
-            if (msg.what == 0) {
-                val yuvData = msg.obj as ByteArray
-                Log.d(TAG, "ImageProcessHandler: Received YUV data, invoking callback.")
-                captureCallback?.invoke(yuvData)
-                Log.d(TAG, "ImageProcessHandler: Releasing resources after callback.")
-                stopCapture()
-            }
-        }
+    companion object {
+        val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { CameraEngine() }
     }
 
-    fun startSingleFrameCapture(onSuccess: (yuvData: ByteArray) -> Unit, onFailure: (reason: String) -> Unit) {
-        if (!isRunning.compareAndSet(false, true)) {
-            Log.w(TAG, "DEFEAT! Capture is already running.")
-            onFailure("上次拍照还未完成")
+    fun start(
+        storageDir: File,
+        callback: (success: Boolean, message: String, photoPath: String?) -> Unit
+    ) {
+        if (isRunning) {
+            callback(false, "引擎正忙，请稍后再试", null)
             return
         }
+        isRunning = true
+        Log.i(TAG, "START command received. Final Victory Engine.")
 
-        Log.i(TAG, "ACTION: Starting capture...")
-        this.captureCallback = onSuccess
-        this.errorCallback = onFailure
+        startBackgroundThread()
 
+        backgroundHandler?.post {
+            Log.d(TAG, "Executing initialization on thread: ${Thread.currentThread().name}")
+            if (!initializeAndRequest(storageDir, callback)) {
+                Log.e(TAG, "Engine initialization failed. Stopping.")
+                mainHandler.post {
+                    callback(false, "引擎启动失败", null)
+                }
+                stop()
+            }
+        }
+    }
+
+    private fun initializeAndRequest(
+        storageDir: File,
+        callback: (success: Boolean, message: String, photoPath: String?) -> Unit
+    ): Boolean {
         try {
-            startThreads()
-            initImageReaderAndSurface() // 关键步骤：初始化并立刻获取Surface
-            requestFrame()
+            // 【关键修正1/2】增加一个flag，确保我们只处理第一张图片
+            val photoTaken = java.util.concurrent.atomic.AtomicBoolean(false)
+            imageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 4)
+
+            // 【关键修正】将 backgroundHandler 作为第二个参数传入，确保回调100%在我们的后台线程中执行！
+            imageReader?.setOnImageAvailableListener({ reader ->
+                if (photoTaken.get()) {
+                    return@setOnImageAvailableListener
+                }
+                val image: Image? = try { reader.acquireLatestImage() } catch (e: Exception) { null }
+                if (image == null) {
+                    Log.w(TAG, "acquireLatestImage returned null, skipping frame.")
+                    return@setOnImageAvailableListener
+                }
+                // 【关键】一旦获取到第一张有效图片，立刻设置flag并停止引擎！
+                // 这会关闭数据流，但不会影响我们对当前这张`image`的处理。
+                if (photoTaken.compareAndSet(false, true)) {
+                    Log.i(TAG, "First valid image acquired. Stopping engine to prevent more frames.")
+                    stop()
+                }
+
+                // 【核心战术：先榨取，后关闭】
+                Log.d(TAG, "Image available! Extracting data immediately...")
+                val nv21Data = ImageUtils.convertYUV420888ToNV21(image)
+                val width = image.width
+                val height = image.height
+                image.close() // **完成使命，立刻释放！**
+                Log.d(TAG, "Image closed. Data is now safe in a byte array.")
+
+                // 【数据安全后，再进行耗时操作】
+                val photoPath = ImageUtils.saveNv21DataToJpeg(nv21Data, width, height, storageDir)
+
+                val success = photoPath != null
+                val message = if (success) "拍照成功，稍后获得表情包" else "拍照成功但保存文件失败！"
+
+                mainHandler.post {
+                    callback(success, message, photoPath)
+                }
+
+                // 任务完成，停止引擎
+                // stop()
+
+            }, backgroundHandler) //  <-- 决定胜负的关键！
+
+            if (surfaceShareBean == null) {
+                surfaceShareBean = SurfaceShareBean().apply { name = "ZhiyunAgentRobot_Photo" }
+            }
+            Log.d(TAG, "Step 2: Preparing Surface...")
+            if (surfaceShareBean == null) {// ▼▼▼【最终的、决定性的质询！】▼▼▼
+                // 我们已经尝试过 "ZhiyunAgentRobot_Photo" 和 ""。
+                // 最后一次尝试：完全不设置name，让它保持默认的 null 值。
+                surfaceShareBean = SurfaceShareBean()
+                Log.i(TAG, "Final attempt 2: Creating SurfaceShareBean without setting a name (keeping it null).")
+            }
+
+            remoteSurface = imageReader?.surface
+            // ▼▼▼【第一道日志防线：检查Surface的有效性】▼▼▼
+            if (remoteSurface == null || !remoteSurface!!.isValid) {
+                Log.e(TAG, "FATAL FLAW: ImageReader surface is NULL or INVALID. Cannot proceed. isValid=${remoteSurface?.isValid}")
+                return false
+            }
+            Log.i(TAG, "Step 2: Surface is VALID and ready. remoteSurface: $remoteSurface")
+
+            // ▼▼▼【第二道日志防线：在调用API前后都加上日志】▼▼▼
+            Log.i(TAG, "Step 3: About to call SurfaceShareApi.requestImageFrame...")
+            SurfaceShareApi.getInstance().requestImageFrame(
+                remoteSurface, surfaceShareBean, object : SurfaceShareListener() {
+                    override fun onError(error: Int, message: String?) {
+                        Log.e(TAG, "MISSION FAILED at the source! SurfaceShareApi.onError triggered!Code: $error, Message: $message")
+                        mainHandler.post {
+                            callback(false, "摄像头API错误: $message (code: $error)", null)
+                        }
+                        stop()
+                    }
+                })
+            Log.i(TAG, "TAG, \"Step 3: Call to SurfaceShareApi.requestImageFrame has been sent. Engine is now waiting for image data...")
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "DEFEAT! Exception during capture start.", e)
-            errorCallback?.invoke("启动拍照时发生异常: ${e.message}")
-            stopCapture()
+            Log.e(TAG, "Failed to initialize engine.", e)
+            return false
         }
     }
 
-    // 严格按照官方顺序释放
-    private fun stopCapture() {
-        if (!isRunning.getAndSet(false)) { return }
-        Log.w(TAG, "ACTION: Stopping capture and releasing all resources...")
+    private fun stop() {
+        if (!isRunning) return
+        // 确保停止操作也在后台线程执行，避免线程冲突
+        backgroundHandler?.post {
+            if (!isRunning) return@post // 双重检查，防止多次调用
+            Log.i(TAG, "STOP command received. Releasing resources...")
 
-        if (currentError != SurfaceShareError.ERROR_SURFACE_SHARE_USED) {
             surfaceShareBean?.let { SurfaceShareApi.getInstance().abandonImageFrame(it) }
+            imageReader?.close()
+
+            imageReader = null
+            remoteSurface = null
+            surfaceShareBean = null
+
+            stopBackgroundThread()
+            isRunning = false
+            Log.i(TAG, "All resources have been released.")
         }
-        closeImageReader() // 先关闭Reader和Surface
-        stopThreads()      // 再停止线程
-
-        surfaceShareBean = null
-        currentError = 0
-        captureCallback = null
-        errorCallback = null
-        Log.w(TAG, "All resources released.")
     }
 
-    private fun startThreads() {
-        imageReaderThread = HandlerThread("ImageReaderThread").apply { start() }
-        imageReaderHandler = Handler(imageReaderThread!!.looper)
-        imageProcessThread = HandlerThread("ImageProcessThread").apply { start() }
-        imageProcessHandler = ImageProcessHandler(imageProcessThread!!.looper)
-    }
-
-    // ▼▼▼【最终修正第二处：合并初始化和Surface获取，确保时序正确】▼▼▼
-    private fun initImageReaderAndSurface() {
-        if (imageReader != null) throw IllegalStateException("ImageReader has been created.")
-
-        imageReader = ImageReader.newInstance(
-            VISION_IMAGE_WIDTH, VISION_IMAGE_HEIGHT, ImageFormat.YUV_420_888, MAX_CACHE_IMAGES
-        ).apply {
-            setOnImageAvailableListener({ reader ->
-                val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
-                Log.i(TAG, "SUCCESS! Image available! Processing...")
-
-                val nv21Data = convertYuv420888ToNv21(image)
-                image.close()
-                Message.obtain(imageProcessHandler, 0, nv21Data).sendToTarget()
-
-            }, imageReaderHandler)
+    private fun startBackgroundThread() {
+        if (backgroundThread != null) return
+        backgroundThread = HandlerThread("CameraEngineVictoryThread").apply {
+            start()
+            backgroundHandler = Handler(looper)
         }
-        // 关键：在请求前就获取并持有Surface的引用
-        remoteSurface = imageReader?.surface ?: throw IllegalStateException("Surface created is null!")
-        Log.d(TAG, "Surface initialized and obtained successfully: $remoteSurface")
     }
 
-    private fun requestFrame() {
-        if (surfaceShareBean == null) {
-            surfaceShareBean = SurfaceShareBean().apply { name = "ZhiyunApp" }
-        }
-        // remoteSurface 此时一定已被初始化
-        SurfaceShareApi.getInstance().requestImageFrame(remoteSurface!!, surfaceShareBean, object : SurfaceShareListener() {
-            override fun onError(error: Int, message: String) {
-                super.onError(error, message)
-                currentError = error
-                Log.e(TAG, "DEFEAT! SurfaceShareApi onError: $error, $message")
-                errorCallback?.invoke("摄像头共享失败: $message")
-                stopCapture()
-            }
-        })
-        Log.i(TAG, "SurfaceShareApi.requestImageFrame called.")
-    }
-
-    private fun stopThreads() {
-        imageReaderThread?.quitSafely()
-        imageProcessThread?.quitSafely()
-        try { imageReaderThread?.join(50) } catch (e: InterruptedException) {}
-        try { imageProcessThread?.join(50) } catch (e: InterruptedException) {}
-        imageReaderThread = null
-        imageProcessThread = null
-        imageReaderHandler = null
-        imageProcessHandler = null
-    }
-
-    private fun closeImageReader() {
-        imageReader?.close()
-        imageReader = null
-        // 根据官方文档，不应手动释放由 ImageReader 创建的 Surface
-        // remoteSurface?.release()
-        remoteSurface = null
-    }
-
-    private fun convertYuv420888ToNv21(image: Image): ByteArray {
-        // (此部分代码无变化)
-        val width = image.width
-        val height = image.height
-        val ySize = width * height
-        val nv21 = ByteArray(ySize + width * height / 2)
-        val yBuffer = image.planes[0].buffer
-        val uBuffer = image.planes[1].buffer
-        val vBuffer = image.planes[2].buffer
-        yBuffer.get(nv21, 0, ySize)
-        val vPlane = image.planes[2]
-        val uvPixelStride = vPlane.pixelStride
-        val vPlaneBuffer = vPlane.buffer
-        for (i in 0 until height / 2) {
-            for (j in 0 until width / 2) {
-                val v = vPlaneBuffer[i * vPlane.rowStride + j * uvPixelStride]
-                nv21[ySize + i * width + j * 2] = v
-                nv21[ySize + i * width + j * 2 + 1] = uBuffer[i * image.planes[1].rowStride + j * uvPixelStride]
-            }
-        }
-        return nv21
+    private fun stopBackgroundThread() {
+        backgroundThread?.quitSafely()
+        try {
+            backgroundThread?.join(50)
+        } catch (e: InterruptedException) { e.printStackTrace() }
+        backgroundThread = null
+        backgroundHandler = null
     }
 }

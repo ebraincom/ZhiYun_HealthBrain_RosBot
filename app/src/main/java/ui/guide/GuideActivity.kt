@@ -1,21 +1,28 @@
-// 文件路径: app/src/main/java/.../ui/guide/GuideActivity.kt
+// =================================================================================
+// 文件路径: app/src/main/java/com/zhiyun/agentrobot/ui/guide/GuideActivity.kt
+// 【真正完整版 - 融合UI】 - 这个文件是为您量身定制的，请用它替换。
+// =================================================================================
 package com.zhiyun.agentrobot.ui.guide
 
+import android.Manifest
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.launch
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.lifecycleScope
-import com.ainirobot.agent.AgentCore
-import com.ainirobot.agent.PageAgent
 import com.zhiyun.agentrobot.MyApplication
 import com.zhiyun.agentrobot.data.UserProfile
 import com.zhiyun.agentrobot.data.roleAssistant
@@ -25,81 +32,52 @@ import com.zhiyun.agentrobot.ui.common.AppScaffold
 import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.util.CameraEngine
-import com.ainirobot.agent.base.ActionStatus // 导入正确的类
-import com.ainirobot.agent.OnActionStatusChangedListener // 导入状态监听接口
 
-
-// 最终的、肃清了所有错误的版本
 class GuideActivity : ComponentActivity() {
+    private val TAG = "GuideActivity_VICTORY" // 【升级】最终语音胜利版TAG
 
-    private lateinit var pageAgent: PageAgent
-    private val TAG = "GuideActivity_Final"
+    // 权限请求器
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                Log.i(TAG, "PERMISSION GRANTED after request. Proceeding to take photo.")
+                startTakingPhoto()
+            } else {
+                Log.e(TAG, "PERMISSION DENIED. Cannot take photo.")
+                Toast.makeText(this, "没有相机权限，无法拍照", Toast.LENGTH_LONG).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        initDependencies()
+        Log.i(TAG, "onCreate: Activity is being created.")
+
+        // ▼▼▼【核心修正1】: 从 onCreate 中彻底移除所有与 CameraEngine 回调相关的旧代码！▼▼▼
+        // CameraEngine.instance.setOnPhotoTakenListener { ... }  <--- 这行以及其内容块必须删除！
+
         setContent {
             ZhiyunAgentRobotTheme {
-                GuidePageFinal()
+                // 调用包含完整UI和新逻辑的组合函数
+                GuidePageWithFinalLogic()
             }
         }
     }
 
-    private fun initDependencies() {
-        pageAgent = PageAgent(this).apply {
-            setObjective("这是一个纯粹的UI展示与操作页面，请保持绝对静默，不要处理任何语音输入，也不要进行任何TTS播报。")
-            // ▼▼▼【最终决战第二处：使用正确的接口实现方式设置监听器】▼▼▼
-            setOnActionStatusChangedListener(object : OnActionStatusChangedListener {
-                // 核心修正：所有参数都使用可空类型(String?)，与编译器提示完全一致
-                override fun onStatusChanged(actionName: String?, status: String?, message: String?): Boolean {
-                    // 只关心拍照Action的结果
-                    if (actionName == "orion.vision.TAKE_PHOTO") {
-                        // 回调在子线程，必须切回主线程更新UI
-                        runOnUiThread {
-                            when (status) {
-                                ActionStatus.SUCCEEDED.name -> {
-                                    Log.i(TAG, "VICTORY! 拍照Action成功! Message: $message")
-                                    Toast.makeText(this@GuideActivity, "拍照成功！$message", Toast.LENGTH_LONG).show()
-                                    AgentCore.tts("拍照成功！")
-                                }
-                                ActionStatus.FAILED.name -> {
-                                    Log.e(TAG, "DEFEAT! 拍照Action失败. Message: $message")
-                                    Toast.makeText(this@GuideActivity, "拍照失败: $message", Toast.LENGTH_LONG).show()
-                                    AgentCore.tts("拍照失败，$message")
-                                }
-                                else -> {
-                                    Log.d(TAG, "拍照Action状态更新: Status: $status, Message: $message")
-                                }
-                            }
-                        }
-                    }
-                    return false // 返回false，不消费事件，继续传递给其他监听器
-                }
-            })
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // ▼▼▼【最终修正第一处：删除不存在的API调用】▼▼▼
-        // pageAgent.reportPageStarted() // 此API不存在，AgentOS会自动处理
-        AgentCore.isDisablePlan = true
-    }
-
     override fun onPause() {
         super.onPause()
-        // ▼▼▼【最终修正第二处：删除不存在的API调用】▼▼▼
-        // pageAgent.reportPageEnded() // 此API不存在，AgentOS会自动处理
+        // onPause 时停止CameraEngine不再是最佳实践，因为拍照是异步的。
+        // CameraEngine 会在拍照完成后自行停止。
+        // CameraEngine.instance.stop() // <-- 建议移除此行，以防中断正在进行的拍照
     }
 
-    // 您的UI函数 GuidePageFinal，100%原封不动地保留
     @Composable
-    private fun GuidePageFinal() {
+    private fun GuidePageWithFinalLogic() {
         val context = LocalContext.current
         var showRoleSelectionDialog by remember { mutableStateOf(false) }
         var currentSelectedItem by remember { mutableStateOf(guideUiItems.first()) }
         val currentUserProfile = UserProfile(name = "王阿姨")
 
+        // 【UI逻辑保持不变】
         if (showRoleSelectionDialog) {
             val rolesForSelection = listOfNotNull(roleAssistant, roleData, roleDoctor).filter {
                 it.name == "智芸康养小助手" || it.name == "智芸数据"
@@ -126,51 +104,81 @@ class GuideActivity : ComponentActivity() {
             onGuideClick = { Toast.makeText(context, "当前已在导览页面", Toast.LENGTH_SHORT).show() },
             onOneTouchSosClick = { Toast.makeText(context, "点击了一键呼叫", Toast.LENGTH_SHORT).show() },
             content = { innerPadding ->
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
-                    Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Column(modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)) {
+                    Box(modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)) {
                         GuideContentScreen(
                             modifier = Modifier.fillMaxSize(),
                             items = guideUiItems,
                             selectedItem = currentSelectedItem,
                             onItemSelected = { selectedItem ->
                                 currentSelectedItem = selectedItem
-                                if (selectedItem.name == "表情包合影") {
-                                    handleExpressionPhotoClick()
-                                }
+                            },
+                            // 【职责2：动作回调】只负责响应拍照按钮的点击
+                            onPhotoClick = {
+                                Log.d(
+                                    TAG,
+                                    "onPhotoClick explicitly triggered. Calling handleExpressionPhotoClick."
+                                )
+                                handleExpressionPhotoClick()
                             }
                         )
                     }
-                    Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
                 }
             }
         )
     }
 
-    // 您的拍照处理方法 handleExpressionPhotoClick，100%原封不动地保留
     private fun handleExpressionPhotoClick() {
-        val commands = listOf(
-            "拍照",
-            "拍张照",
-            "给我拍张照",
-            "执行拍照功能",
-            "调用系统相机",
-            "take photo" // 加入英文指令作为对照
-        )
-        val randomCommand = commands.random()
-
-        Log.i(TAG, "ACTION: 发送指令 '$randomCommand'，请求大模型规划拍照Action")
-        Toast.makeText(this, "正在请求系统拍照 (指令: $randomCommand)...", Toast.LENGTH_SHORT).show()
-
-        AgentCore.query(randomCommand)
+        Log.i(TAG, "handleExpressionPhotoClick: Checking permissions...")
+        when {
+            checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED -> {
+                Log.i(TAG, "CAMERA permission is already granted. Starting photo process directly.")
+                startTakingPhoto()
+            }
+            else -> {
+                Log.i(TAG, "CAMERA permission not granted. Requesting...")
+                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
     }
 
+    private fun startTakingPhoto() {
+        val storageDir = getExternalFilesDir(null)
+        if (storageDir == null) {
+            Toast.makeText(this, "无法访问存储目录", Toast.LENGTH_SHORT).show()
+            Log.e(TAG, "startTakingPhoto failed: Storage directory is null.")
+            return
+        }
 
+        // ▼▼▼【核心修正3：战前语音动员】▼▼▼
+        val welcomeText = "请您面对摄像头，并保持姿势，以便我们获取您的头像"
+        (application as? MyApplication)?.safeTts(welcomeText)
+        Log.i(TAG, "TTS requested: '$welcomeText'")
 
+        Toast.makeText(this, "请看摄像头...", Toast.LENGTH_SHORT).show()
+        Log.i(TAG, "All pre-conditions met. Commanding CameraEngine to start...")
 
+        // ▼▼▼【核心修正4：调用 CameraEngine 并传入最终的回调逻辑】▼▼▼
+        CameraEngine.instance.start(storageDir) { success, message, photoPath ->
+            runOnUiThread {
+                if (success) {
+                    // ▼▼▼【核心修正5：胜利语音宣告】▼▼▼
+                    val successText = "拍照成功，稍后获得表情包"
+                    (application as? MyApplication)?.safeTts(successText)
+                    Log.i(TAG, "TTS requested: '$successText'")
 
-    override fun onDestroy() {
-        super.onDestroy()
-        Log.w(TAG, "Activity is being destroyed.")
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                    Log.i(TAG, "VICTORY CONFIRMED! Message: $message, Path: $photoPath")
+
+                } else {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                    Log.e(TAG, "MISSION FAILED! Message: $message")
+                }
+            }
+        }
     }
 }
