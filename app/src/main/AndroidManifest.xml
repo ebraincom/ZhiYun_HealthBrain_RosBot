@@ -56,7 +56,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ZhiYun_AgentRobot"
-        tools:targetApi="31">
+        tools:targetApi="31"
+        android:usesCleartextTraffic="true">
         <!-- 如果您的 targetSdkVersion >= 30 并且确实需要传统的外部存储访问，
              可以在这里添加 android:requestLegacyExternalStorage="true"，
              但请注意 Google Play 对此的限制。

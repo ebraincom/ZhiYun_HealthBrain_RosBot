@@ -40,6 +40,7 @@ class MyApplication : Application() {
         // CameraEngine.instance.initialize()
         Log.i(TAG, "CameraEngine.instance.initialize() command has been sent.")
 
+
     }
 
     fun safeTts(text: String, timeoutMillis: Long = 0) {

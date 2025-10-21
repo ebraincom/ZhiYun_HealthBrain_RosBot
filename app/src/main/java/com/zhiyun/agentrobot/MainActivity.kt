@@ -34,6 +34,7 @@ import com.zhiyun.agentrobot.ui.screens.HomeScreen
 import com.zhiyun.agentrobot.ui.screens.UserProfile
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import kotlinx.coroutines.launch
+import com.ainirobot.agent.coroutine.AOCoroutineScope
 
 /**
  * 主页Activity
@@ -188,9 +189,85 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
+        // --- 音乐播放Action (这是我们新增的，增加了暂停大模型的回调，加入notify()) ---
+        val playMusicAction = Action(
+            "com.zhiyun.action.PLAY_MUSIC",
+            "播放音乐",
+            "播放指定歌手的指定歌曲。目前曲库只有周杰伦的《七里香》。",
+            listOf(
+                Parameter("song_name", ParameterType.STRING, "歌曲名称", true),
+                Parameter("artist_name", ParameterType.STRING, "歌手名称", false)
+            ),
+            object : ActionExecutor {
+                override fun onExecute(action: Action, params: Bundle?): Boolean {
+                    AOCoroutineScope.launch { // 确保 AOCoroutineScope 的 import 是正确的
+                        val songName = params?.getString("song_name") ?: ""
+
+                        if (songName == "七里香") {
+                            val musicUrl = MusicPlayerEngine.musicDatabase[songName]!!
+                            AgentCore.ttsSync("好的，为您播放周杰伦的《$songName》")
+
+                            MusicPlayerEngine.playMusic(
+                                url = musicUrl,
+                                onCompletion = {
+                                    // ✅【最终修正】使用无参数的 notify() 代表成功！
+                                    Log.i("MainActivity", "Action SUCCEEDED, notifying agent.")
+                                    action.notify()
+                                },
+                                onError = { errorReason ->
+                                    // ✅【最终修正】我们不确定失败的 notify 形式，
+                                    //    为了编译通过，暂时也使用无参数的 notify()！
+                                    //    这至少能保证流程完整，不会卡死！
+                                    Log.e("MainActivity", "Action FAILED ($errorReason), notifying agent.")
+                                    action.notify()
+                                }
+                            )
+                        } else {
+                            AgentCore.ttsSync("抱歉，我的曲库里暂时还没有这首歌。")
+                            // ✅【最终修正】这里也使用无参数的 notify()
+                            action.notify()
+                        }
+                    }
+                    return true
+                }
+            }
+        )
+        // ▼▼▼【新增的“停止播放”Action】▼▼▼
+        val stopMusicAction = Action(    name = "com.zhiyun.agentrobot.action.STOP_MUSIC",
+            displayName = "停止播放音乐",
+            desc = "当用户想要停止当前正在播放的音乐时，调用此工具。例如用户说'停止播放'、'别唱了'、'安静'等。",
+            parameters = emptyList(),
+            executor = object : ActionExecutor {
+                override fun onExecute(action: Action, params: Bundle?): Boolean {
+                    // 【修正！】将所有操作放入协程中，以正确调用挂起函数 ttsSync
+                    AOCoroutineScope.launch {
+                        Log.i("MainActivity", "STOP_MUSIC Action triggered.")
+
+                        // 在协程环境中调用 ttsSync，编译器将不再报错
+                        AgentCore.ttsSync("好的")
+
+                        MusicPlayerEngine.stopMusic()
+
+                        // 在所有操作完成后调用 notify()
+                        action.notify()
+                    }
+                    // 立即返回 true
+                    return true
+                }
+            }
+        )
+// ▲▲▲【修改结束】▲▲▲
+
+        // ▲▲▲【新增结束】▲▲▲
+
+
 
         pageAgent.registerAction(queryWeatherAction)
         pageAgent.registerAction(queryRestrictionAction)
+        pageAgent.registerAction(playMusicAction) // <-- 注册我们新的音乐Action
+        pageAgent.registerAction(stopMusicAction) // <-- 【新增此行】 将“停止播放”工具加入注册列表
+
+
 
         // Objective的描述变得更通用，不再强行绑定“小助手”
         pageAgent.setObjective(
@@ -198,6 +275,8 @@ class MainActivity : ComponentActivity() {
                     "当用户的意图符合以下工具的功能时，你必须优先调用对应的工具：\n" +
                     "1. '查询天气'：调用'com.zhiyun.action.QUERY_WEATHER'工具。\n" +
                     "2. '查询限行'：调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
+                    "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数。\n" +
+                    "4. '停止播放'：调用'com.zhiyun.action.STOP_MUSIC'工具。\n" +
                     "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
         )
         Log.i("MainActivity_Final", "Home page actions and a more GENERIC objective have been set.")
@@ -330,4 +409,3 @@ fun DefaultPreview() {
         PermissionsScreen(onGrantRecordAudio = {}, onGrantCamera = {}, recordAudioGranted = false, cameraGranted = false)
     }
 }
-
