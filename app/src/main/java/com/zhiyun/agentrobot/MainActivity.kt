@@ -35,6 +35,10 @@ import com.zhiyun.agentrobot.ui.screens.UserProfile
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import kotlinx.coroutines.launch
 import com.ainirobot.agent.coroutine.AOCoroutineScope
+import com.zhiyun.agentrobot.data.network.MediaApiClient
+
+
+
 
 /**
  * 主页Activity
@@ -50,6 +54,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var pageAgent: PageAgent
     private val trafficRepository = TrafficRepository()
     private val weatherDataState: MutableState<String> = mutableStateOf("天气获取中...")
+
+    private val apiService by lazy { MediaApiClient.mediaApiService }
+    val mediaApiService = MediaApiClient.mediaApiService
+
 
     // --- ActivityResultLaunchers 声明区 ---
     private val requestRecordAudioLauncher =
@@ -146,6 +154,7 @@ class MainActivity : ComponentActivity() {
 
     // --- defineAndRegisterActions 方法 ---
     private fun defineAndRegisterActions() {
+
         val cityParameter = Parameter("city", ParameterType.STRING, "用户想要查询的城市名称，例如'北京'、'上海'", true)
 
         val queryWeatherAction = Action(
@@ -189,50 +198,65 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-        // --- 音乐播放Action (这是我们新增的，增加了暂停大模型的回调，加入notify()) ---
+        // --- 音乐播放Action（最终回溯正确版本Final Ultimatum） ---
         val playMusicAction = Action(
             "com.zhiyun.action.PLAY_MUSIC",
             "播放音乐",
-            "播放指定歌手的指定歌曲。目前曲库只有周杰伦的《七里香》。",
+            "根据用户指定的歌名，从我们自己的服务器搜索并播放音乐。",
             listOf(
-                Parameter("song_name", ParameterType.STRING, "歌曲名称", true),
-                Parameter("artist_name", ParameterType.STRING, "歌手名称", false)
+                Parameter("song_name", ParameterType.STRING, "歌曲名称，例如'七里香'、'晴天'等", true)
             ),
             object : ActionExecutor {
                 override fun onExecute(action: Action, params: Bundle?): Boolean {
-                    AOCoroutineScope.launch { // 确保 AOCoroutineScope 的 import 是正确的
-                        val songName = params?.getString("song_name") ?: ""
+                    val songName = params?.getString("song_name")
+                    if (songName.isNullOrEmpty()) {
+                        AgentCore.tts("请告诉我您想听什么歌呢？")
+                        // 【失败路径1】: 只做TTS提示，不调用notify()！
+                        return true
+                    }
 
-                        if (songName == "七里香") {
-                            val musicUrl = MusicPlayerEngine.musicDatabase[songName]!!
-                            AgentCore.ttsSync("好的，为您播放周杰伦的《$songName》")
+                    lifecycleScope.launch {
+                        try {
+                            Log.d("playMusicAction", "正在为歌曲'$songName'请求网络...")
+                            val response = mediaApiService.searchMedia(keyword = songName)
+                            if (response.code == 0 && response.data?.items?.isNotEmpty() == true) {
+                                val firstSong = response.data.items[0]
+                                val songUrl = firstSong.url
+                                val artist = firstSong.artist ?: "未知艺术家"
 
-                            MusicPlayerEngine.playMusic(
-                                url = musicUrl,
-                                onCompletion = {
-                                    // ✅【最终修正】使用无参数的 notify() 代表成功！
-                                    Log.i("MainActivity", "Action SUCCEEDED, notifying agent.")
-                                    action.notify()
-                                },
-                                onError = { errorReason ->
-                                    // ✅【最终修正】我们不确定失败的 notify 形式，
-                                    //    为了编译通过，暂时也使用无参数的 notify()！
-                                    //    这至少能保证流程完整，不会卡死！
-                                    Log.e("MainActivity", "Action FAILED ($errorReason), notifying agent.")
-                                    action.notify()
-                                }
-                            )
-                        } else {
-                            AgentCore.ttsSync("抱歉，我的曲库里暂时还没有这首歌。")
-                            // ✅【最终修正】这里也使用无参数的 notify()
-                            action.notify()
+                                AgentCore.tts("好的，为您播放${artist}的${firstSong.title}")
+                                Log.i("playMusicAction", "歌曲找到: ${firstSong.title}, URL: $songUrl")
+
+                                MusicPlayerEngine.playMusic(
+                                    url = songUrl,
+                                    onCompletion = {
+                                        Log.i("playMusicAction", "歌曲播放完成。")
+                                        // ✅【唯一成功路径】: 在播放完成的回调中，调用无参数的 notify()！
+                                        action.notify()
+                                    },
+                                    onError = { errorMsg ->
+                                        Log.e("playMusicAction", "播放器错误: $errorMsg")
+                                        AgentCore.tts("哎呀，这首歌好像播放失败了，换一首试试？")
+                                        // 【失败路径2】: 只做TTS提示，不调用notify()！
+                                    }
+                                )
+                            } else {
+                                Log.w("playMusicAction", "服务器未找到歌曲 '$songName'。响应: ${response.message}")
+                                AgentCore.tts("抱歉，我的曲库里暂时还没有这首歌。")
+                                // 【失败路径3】: 只做TTS提示，不调用notify()！
+                            }
+                        } catch (e: Exception) {
+                            Log.e("playMusicAction", "网络请求异常", e)
+                            AgentCore.tts("网络好像开小差了，请稍后再试试吧。")
+                            // 【失败路径4】: 只做TTS提示，不调用notify()！
                         }
                     }
                     return true
                 }
             }
         )
-        // ▼▼▼【新增的“停止播放”Action】▼▼▼
+
+        // ▼▼▼【“停止播放”Action】▼▼▼
         val stopMusicAction = Action(    name = "com.zhiyun.agentrobot.action.STOP_MUSIC",
             displayName = "停止播放音乐",
             desc = "当用户想要停止当前正在播放的音乐时，调用此工具。例如用户说'停止播放'、'别唱了'、'安静'等。",
@@ -258,16 +282,12 @@ class MainActivity : ComponentActivity() {
         )
 // ▲▲▲【修改结束】▲▲▲
 
-        // ▲▲▲【新增结束】▲▲▲
-
 
 
         pageAgent.registerAction(queryWeatherAction)
         pageAgent.registerAction(queryRestrictionAction)
-        pageAgent.registerAction(playMusicAction) // <-- 注册我们新的音乐Action
-        pageAgent.registerAction(stopMusicAction) // <-- 【新增此行】 将“停止播放”工具加入注册列表
-
-
+        pageAgent.registerAction(playMusicAction) // <-- 改为静态注册，注释保留
+        pageAgent.registerAction(stopMusicAction) // <-- 改为静态注册，注释保留
 
         // Objective的描述变得更通用，不再强行绑定“小助手”
         pageAgent.setObjective(
@@ -275,7 +295,7 @@ class MainActivity : ComponentActivity() {
                     "当用户的意图符合以下工具的功能时，你必须优先调用对应的工具：\n" +
                     "1. '查询天气'：调用'com.zhiyun.action.QUERY_WEATHER'工具。\n" +
                     "2. '查询限行'：调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
-                    "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数。\n" +
+                    "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数,不局限七里香。\n" +
                     "4. '停止播放'：调用'com.zhiyun.action.STOP_MUSIC'工具。\n" +
                     "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
         )

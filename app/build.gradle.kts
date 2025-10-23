@@ -77,6 +77,14 @@ dependencies {
     // 【核心修正 2/2】：为 delay() 函数添加 Kotlin Coroutines 核心库依赖
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3") // 建议使用较新且稳定的版本
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    // Retrofit - 强大的类型安全的HTTP客户端
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+
+    // Gson Converter - 用于将服务器返回的JSON自动转换为Kotlin对象
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+
+    // OkHttp Logging Interceptor - (强烈推荐) 用于在Logcat中打印详细的网络请求和响应日志，方便调试
+    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
 
 
 

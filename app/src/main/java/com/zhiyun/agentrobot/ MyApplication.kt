@@ -17,6 +17,7 @@ import com.zhiyun.agentrobot.data.defaultRole // <-- 2. 导入我们定义的 de
 import com.ainirobot.coreservice.client.RobotApi
 import com.zhiyun.agentrobot.util.CameraEngine // <-- 导入CameraEngine
 
+
 class MyApplication : Application() {
     // 【修改1】: 将 appAgentInstance 重命名为 appAgent，并设为私有 setter
     lateinit var appAgent: AppAgent
@@ -39,8 +40,6 @@ class MyApplication : Application() {
         // 初始化 CameraEngine
         // CameraEngine.instance.initialize()
         Log.i(TAG, "CameraEngine.instance.initialize() command has been sent.")
-
-
     }
 
     fun safeTts(text: String, timeoutMillis: Long = 0) {
@@ -167,3 +166,4 @@ class MyApplication : Application() {
         }
     }
 }
+
