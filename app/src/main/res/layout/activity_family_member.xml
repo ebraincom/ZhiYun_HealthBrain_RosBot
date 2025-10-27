@@ -1,0 +1,66 @@
+<!-- 文件路径: app/src/main/res/layout/activity_family_member.xml -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#E0E0E0">
+
+    <!-- 【【【 核心设计：图层叠加画板 】】】 -->
+    <FrameLayout
+        android:id="@+id/camera_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true">
+
+        <!-- ▼▼▼【【【 核心修正：拨乱反正！ 】】】▼▼▼ -->
+
+        <!-- 图层1：底层 - 用于显示您精美的取景框UI作为背景 -->
+        <ImageView
+            android:id="@+id/viewfinder_background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitXY"
+            android:src="@drawable/viewfinder_overlay" />
+        <!-- 【注意：我将ID从viewfinder_overlay改为了viewfinder_background以明确其作用】 -->
+
+        <!-- 图层2：顶层 - 用于显示摄像头拍摄的照片 -->
+        <!-- 这张照片将覆盖在取景框背景之上，但只在拍照成功后可见 -->
+        <ImageView
+            android:id="@+id/photo_preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:visibility="invisible"
+            android:contentDescription="摄像头照片" />
+
+        <!-- ▲▲▲【【【 核心修正完成！ 】】】▲▲▲ -->
+
+    </FrameLayout>
+
+    <!-- 状态显示区，放在屏幕顶部，覆盖在画板之上 -->
+    <TextView
+        android:id="@+id/status_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:background="#80000000"
+        android:padding="8dp"
+        android:text="状态：等待检阅"
+        android:textColor="@android:color/white"
+        android:textSize="22sp" />
+
+    <!-- 手动开火按钮，放在屏幕底部，覆盖在画板之上 -->
+    <Button
+        android:id="@+id/btn_take_picture"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="30dp"
+        android:padding="15dp"
+        android:text="开始拍照！"
+        android:textSize="26sp" />
+
+</RelativeLayout>
+

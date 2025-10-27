@@ -21,4 +21,5 @@
     <string name="robot_greeting_message">你可以对我说，小智帮我做点什么呢</string>
     <string name="robot_avatar_click_label">智芸机器人</string>
     <string name="robot_assistant_avatar_description">智芸形象代言人</string>
+    <string name="title_activity_family_member">家人管理</string>
 </resources>

@@ -226,7 +226,7 @@ fun HomeScreen(
     onShoppingCartClick: () -> Unit = {},
     onMemoClick: () -> Unit = {},
     onStorageClick: () -> Unit = {},
-    // onMemoryShowcaseClick: () -> Unit = {},
+    onMemoryShowcaseClick: () -> Unit = {},
     // onReminderListClick: () -> Unit = {}, //这是智芸提醒列表大图（老奶奶形象）无需点击效果
     onPlanReminderClick: () -> Unit = {},
     onMedicineReminderClick: () -> Unit = {},
@@ -329,7 +329,8 @@ fun HomeScreen(
                         .fillMaxHeight(),
                     onShoppingCartClick = onShoppingCartClick,
                     onMemoClick = onMemoClick,
-                    onStorageClick = onStorageClick
+                    onStorageClick = onStorageClick,
+                    onMemoryShowcaseClick = onMemoryShowcaseClick // 将HomeScreen的信号传递给ZhiyunRecordSection
                 )
                 Spacer(Modifier.width(122.dp))
                 ZhiyunAssistantSection(
@@ -611,7 +612,8 @@ fun ZhiyunRecordSection(
     onShoppingCartClick: () -> Unit,
     onMemoClick: () -> Unit,
     onStorageClick: () -> Unit,
-    // MODIFICATION: 移除了 onMemoryShowcaseClick 参数，因为右侧大图是静态展示
+    onMemoryShowcaseClick: () -> Unit // <-- 把它加在这里！为了让内部的Image可以使用它！
+    // MODIFICATION: 重新启用
 ) {
     // 调整: Card 的 shape应该是整个内容区的圆角，设计稿是 11.dp (不是20.dp)
     // Card 的 padding 应该在 Column 之外，或者 Column 不加 padding，让 Card 的 contentPadding 控制。
@@ -714,7 +716,8 @@ fun ZhiyunRecordSection(
                 contentDescription = stringResource(R.string.memory_showcase_content_description), // 用于可访问性
                 modifier = Modifier
                     .width(391.dp) // 设计稿规范：右侧大图固定宽度
-                    .height(492.dp), // 设计稿规范：右侧大图固定高度 (或 .fillMaxHeight() 保持与左列等高)
+                    .height(492.dp) // 设计稿规范：右侧大图固定高度 (或 .fillMaxHeight() 保持与左列等高)
+                    .clickable { onMemoryShowcaseClick() }, // <-- ★★★ 在这里注入灵魂！ ★★★
                 // .clip(RoundedCornerShape(11.dp)) // MODIFICATION: 如果图片本身需要圆角，则添加
                 contentScale = ContentScale.Crop
             )
@@ -922,7 +925,9 @@ fun HomeScreenLandscapePreview() {
             onRepeatReminderClick = { Log.d("Preview","RepeatReminder clicked") },
             onDoctorClick = { Log.d("Preview","Doctor clicked") },
             // 如果您的 HomeScreen 还有其他参数，也请一并补全
-            onRobotAvatarClicked = { Log.d("Preview", "Robot Avatar Clicked") } // 举例：补全可能缺失的回调
+            onRobotAvatarClicked = { Log.d("Preview", "Robot Avatar Clicked") }, // 举例：补全可能缺失的回调
+            onMemoryShowcaseClick = { Log.d("Preview", "Memory Showcase Clicked") }
+
 
         )
         // ▲▲▲【核心修正】▲▲▲
@@ -976,7 +981,8 @@ fun ZhiyunRecordSectionPreview() {
                 onShoppingCartClick = {},
                 onMemoClick = {},
                 onStorageClick = {},
-                // onMemoryShowcaseClick = {}
+                onMemoryShowcaseClick = {} // 为预览提供空实现
+
             )
         }
     }

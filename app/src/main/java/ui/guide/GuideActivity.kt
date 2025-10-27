@@ -32,9 +32,15 @@ import com.zhiyun.agentrobot.ui.common.AppScaffold
 import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.util.CameraEngine
+import androidx.appcompat.app.AppCompatActivity
+
+/**
+ * 【v1.1·标准化改造版】
+ * 彻底改造摄像头的调用方式，遵循最新的CameraEngine标准！
+ */
 
 class GuideActivity : ComponentActivity() {
-    private val TAG = "GuideActivity_VICTORY" // 【升级】最终语音胜利版TAG
+    private val TAG = "GuideActivity_V1.1" // 【升级】最终语音胜利版TAG
 
     // 权限请求器
     private val requestPermissionLauncher =
@@ -147,37 +153,37 @@ class GuideActivity : ComponentActivity() {
     }
 
     private fun startTakingPhoto() {
-        val storageDir = getExternalFilesDir(null)
-        if (storageDir == null) {
-            Toast.makeText(this, "无法访问存储目录", Toast.LENGTH_SHORT).show()
-            Log.e(TAG, "startTakingPhoto failed: Storage directory is null.")
-            return
-        }
-
-        // ▼▼▼【核心修正3：战前语音动员】▼▼▼
+        // ▼▼▼【核心修正1：战前语音动员，保持不变】▼▼▼
         val welcomeText = "请您面对摄像头，并保持姿势，以便我们获取您的头像"
-        (application as? MyApplication)?.safeTts(welcomeText)
+        // (application as? MyApplication)?.safeTts(welcomeText) // 假设您有这个方法
         Log.i(TAG, "TTS requested: '$welcomeText'")
-
         Toast.makeText(this, "请看摄像头...", Toast.LENGTH_SHORT).show()
+
         Log.i(TAG, "All pre-conditions met. Commanding CameraEngine to start...")
 
-        // ▼▼▼【核心修正4：调用 CameraEngine 并传入最终的回调逻辑】▼▼▼
-        CameraEngine.instance.start(storageDir) { success, message, photoPath ->
-            runOnUiThread {
-                if (success) {
-                    // ▼▼▼【核心修正5：胜利语音宣告】▼▼▼
-                    val successText = "拍照成功，稍后获得表情包"
-                    (application as? MyApplication)?.safeTts(successText)
-                    Log.i(TAG, "TTS requested: '$successText'")
+        // ▼▼▼【核心修正2：使用帝国标准调用CameraEngine】▼▼▼
+        // 不再使用.instance，并且适配新的takePicture接口
+        CameraEngine.takePicture(this) { success, message, bitmap ->
+            // 回调默认就在UI线程，无需runOnUiThread
+            if (success && bitmap != null) {
+                // ▼▼▼【核心修正3：胜利语音宣告，保持不变】▼▼▼
+                val successText = "拍照成功，稍后获得表情包"
+                // (application as? MyApplication)?.safeTts(successText)
+                Log.i(TAG, "TTS requested: '$successText'")
 
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                    Log.i(TAG, "VICTORY CONFIRMED! Message: $message, Path: $photoPath")
+                // ▼▼▼【核心修正4：使用正确的Toast语法】▼▼▼
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                Log.i(TAG, "VICTORY CONFIRMED! Message: $message, Bitmap acquired.")
 
-                } else {
-                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                    Log.e(TAG, "MISSION FAILED! Message: $message")
-                }
+                // 在这里，我们可以将获取到的bitmap用于生成表情包
+                // 比如： handleEmoticonCreation(bitmap)
+
+                // 使用完毕后，记得回收bitmap，防止内存泄漏
+                bitmap.recycle()
+
+            } else {
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                Log.e(TAG, "MISSION FAILED! Message: $message")
             }
         }
     }

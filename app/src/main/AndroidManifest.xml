@@ -2,49 +2,47 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.zhiyun.agentrobot">
-
     <!-- 核心功能权限 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- 前台服务相关权限 -->
+    <uses-permission android:name="android.permission.INTERNET" /> <!-- 前台服务相关权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" /> <!-- 通用前台服务权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
-
-    <!-- 蓝牙相关权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" /> <!-- 蓝牙相关权限 -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH" /> <!-- 针对旧版安卓 -->
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" /> <!-- 针对旧版安卓 -->
-
     <!-- 位置权限 (蓝牙扫描等可能需要) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-    <!-- WIFI 相关权限 -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- WIFI 相关权限 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
-
-    <!-- 存储权限 -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" /> <!-- 存储权限 -->
     <!-- 对于 targetSdkVersion 29 及以下，或在 application 标签中使用 requestLegacyExternalStorage="true" -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <!-- 如果 targetSdkVersion 30+ 且未使用 requestLegacyExternalStorage 或需要更广泛访问,
-         则需要考虑 Scoped Storage 或 MANAGE_EXTERNAL_STORAGE (后者需 Google Play 审核) -->
-
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29" />
+    <!--
+ 如果 targetSdkVersion 30+ 且未使用 requestLegacyExternalStorage 或需要更广泛访问,
+         则需要考虑 Scoped Storage 或 MANAGE_EXTERNAL_STORAGE (后者需 Google Play 审核)
+    -->
     <!-- 机器人特定权限 -->
-    <uses-permission android:name="com.ainirobot.coreservice.robotSettingProvider" />
-
-    <!-- 硬件特性声明 -->
-    <uses-feature android:name="android.hardware.camera" android:required="true" />
-    <uses-feature android:name="android.hardware.microphone" android:required="true" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="true" />
-
+    <uses-permission android:name="com.ainirobot.coreservice.robotSettingProvider" /> <!-- 硬件特性声明 -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="true" />
 
     <application
         android:name=".MyApplication"
@@ -56,30 +54,27 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ZhiYun_AgentRobot"
-        tools:targetApi="31"
-        android:usesCleartextTraffic="true">
-        <!-- 如果您的 targetSdkVersion >= 30 并且确实需要传统的外部存储访问，
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
+        <!--
+         如果您的 targetSdkVersion >= 30 并且确实需要传统的外部存储访问，
              可以在这里添加 android:requestLegacyExternalStorage="true"，
              但请注意 Google Play 对此的限制。
              对于机器人应用，这可能是必要的，但需谨慎。
         -->
         <!-- android:requestLegacyExternalStorage="true" -->
-
-
         <service
             android:name="com.ainirobot.agent.service.AgentClientService"
             android:exported="false"
             android:foregroundServiceType="microphone|camera|connectedDevice"
-            tools:replace="android:exported"/>
-        <!-- tools:replace="android:exported"  通常在库合并冲突时使用，如果这里没有明确冲突，可以不加 -->
-
-
+            tools:replace="android:exported" /> <!-- tools:replace="android:exported"  通常在库合并冲突时使用，如果这里没有明确冲突，可以不加 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.ZhiYun_AgentRobot">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- RobotAPI 文档中要求的 intent-filter, 如果您的 MainActivity 是默认应用的话 -->
@@ -92,16 +87,21 @@
         </activity>
 
         <activity
-            android:name=".ui.guide.GuideActivity"
+            android:name=".ui.family.FamilyMemberActivity"
             android:exported="false"
-            android:theme="@style/Theme.ZhiYun_AgentRobot">
-        </activity>
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
 
         <activity
             android:name=".ChatActivity"
             android:exported="false"
             android:theme="@style/Theme.ZhiYun_AgentRobot" />
-        <!-- ▲▲▲【核心修正结束】▲▲▲ -->
+
+        <activity
+            android:name=".ui.guide.GuideActivity"
+            android:exported="false"
+            android:label="@string/title_activity_family_member"
+            android:theme="@style/Theme.ZhiYun_AgentRobot" />
 
 
     </application>

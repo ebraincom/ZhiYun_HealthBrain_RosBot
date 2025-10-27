@@ -16,14 +16,19 @@ import com.zhiyun.agentrobot.data.Role // <-- 1. 导入我们创建的 Role 类
 import com.zhiyun.agentrobot.data.defaultRole // <-- 2. 导入我们定义的 defaultRole
 import com.ainirobot.coreservice.client.RobotApi
 import com.zhiyun.agentrobot.util.CameraEngine // <-- 导入CameraEngine
+import android.app.Activity // <-- 【修复2】导入 Activity 类
 
+/**
+ * 【v11.0·架构统一版】
+ * 修复了对CameraEngine的错误调用方式，确保应用生命周期能正确管理引擎
+ */
 
 class MyApplication : Application() {
     // 【修改1】: 将 appAgentInstance 重命名为 appAgent，并设为私有 setter
     lateinit var appAgent: AppAgent
         private set
     private var isAgentSDKInitialized: Boolean = false
-    private var TAG = "MyApplication"
+    private var TAG = "MyApplication_v11"
 
     override fun onCreate() {
         Log.d("MyApplication", "Application onCreate: START") // 更早的日志
@@ -38,9 +43,64 @@ class MyApplication : Application() {
         initializeAgentSDK()
         Log.i(TAG, "Proceeding to initialize CameraEngine...")
         // 初始化 CameraEngine
-        // CameraEngine.instance.initialize()
+        initializeCameraEngineManager()
         Log.i(TAG, "CameraEngine.instance.initialize() command has been sent.")
     }
+    /**
+     * 【新增】一个独立的、职责清晰的方法，用于管理CameraEngine的生命周期。
+     */
+    private fun initializeCameraEngineManager() {
+        Log.i(TAG, "Initializing CameraEngine Global Manager...")
+        // 我们不需要在onCreate中显式调用 CameraEngine.instance.initialize() 或 start()。
+        // CameraEngine的设计是“按需启动”，我们只需要确保在应用退出时，它能被彻底关闭即可。
+        // 最好的方法是通过注册Activity生命周期回调来管理。
+
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private var activityCount = 0
+
+            override fun onActivityStarted(activity: Activity) {
+                activityCount++
+            }
+
+            override fun onActivityStopped(activity: Activity) {
+                activityCount--
+                // 当最后一个Activity停止时，可以认为应用已进入后台。
+                // 这是一个非常适合彻底关闭CameraEngine，释放摄像头硬件资源的时机！
+                if (activityCount == 0) {
+                    Log.w(TAG, "Last activity stopped. Application is in background. Shutting down CameraEngine...")
+                    // 直接调用CameraEngine的方法，而不是通过不存在的.instance
+                    CameraEngine.shutdown() // 使用我们在引擎中定义的、更具体的stopPreview方法
+                    // ▲▲▲【【【 核心修正！ 】】】▲▲▲
+                }
+            }
+
+            // 其他回调方法暂时留空，按需实现
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        })
+        Log.i(TAG, "CameraEngine Global Manager registered successfully.")
+    }
+
+    /**
+     * 应用被系统终止时，作为最后一道防线，确保引擎被关闭。
+     * 虽然onTerminate在真实设备上不保证每次都调用，但这是一个好习惯。
+     */
+    override fun onTerminate() {
+        super.onTerminate()
+        Log.w(TAG, "Application is terminating. Forcing shutdown of CameraEngine.")
+        // ▼▼▼【【【 核心修正！ 】】】▼▼▼
+        // 直接调用我们最新定义的、唯一的公开关闭接口
+        CameraEngine.shutdown()
+        // ▲▲▲【【【 核心修正！ 】】】▲▲▲
+    }
+
+    // =================================================================================
+    //  您原有的 AgentSDK 初始化和角色管理代码，保持不变，它们是完美的！
+    // =================================================================================
+
 
     fun safeTts(text: String, timeoutMillis: Long = 0) {
         // 在这里，我们暂时不做isSdkInitialized的检查，以简化问题

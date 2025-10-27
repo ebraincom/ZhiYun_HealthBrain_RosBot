@@ -36,8 +36,8 @@ import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import kotlinx.coroutines.launch
 import com.ainirobot.agent.coroutine.AOCoroutineScope
 import com.zhiyun.agentrobot.data.network.MediaApiClient
-
-
+import androidx.compose.ui.platform.LocalContext
+import com.zhiyun.agentrobot.ui.family.FamilyMemberActivity
 
 
 /**
@@ -89,12 +89,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         Log.i("MainActivity_Final", "onCreate: Initializing.")
 
+
         initDependencies()
         setupListeners()
 
         setContent {
             ZhiyunAgentRobotTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    // --- 关键情报：获取Compose世界里的上下文，这是启动新Activity最安全、最标准的方式！ ---
+                    val context = LocalContext.current
+
                     when {
                         isAgentSdkInitialized -> HomeScreen(
                             weatherDataState = weatherDataState,
@@ -102,6 +106,23 @@ class MainActivity : ComponentActivity() {
                                 startActivity(Intent(this@MainActivity, GuideActivity::class.java))
                                 Log.i("MainActivity_Final", "onMoreConsultClick: Starting GuideActivity.")
                             },
+                            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+                            // ★★★【跃迁信标已嵌入】：这里是唯一的、需要您添加/修改的核心代码！★★★
+                            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+                            onMemoryShowcaseClick = {
+                                // 【设计哲学】：点击事件的唯一职责，就是用最经典的方式启动一个新Activity！
+                                Log.d("MainActivity_Final", "onMemoryShowcaseClick: 即将启动 FamilyMemberActivity。")
+
+                                // 【跃迁指令】：创建指向我们新世界“FamilyMemberActivity”的意图(Intent)。
+                                val intent = Intent(context, FamilyMemberActivity::class.java)
+
+                                // 【执行跃迁】：启动Activity，完成从主世界到新世界的空间跳跃！
+                                context.startActivity(intent)
+                            },
+                            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+                            // ★★★【嵌入点结束】：以上是您需要添加的全部内容。                 ★★★
+                            // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
                             userProfile = UserProfile(name = "王阿姨")
                         )
                         isLoadingPermissions -> Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
@@ -372,6 +393,10 @@ class MainActivity : ComponentActivity() {
         Log.d("MainActivity_Final", "Launching CAMERA permission request...")
         requestCameraLauncher.launch(Manifest.permission.CAMERA)
     }
+    // ▼▼▼【核心改造 2/2：创建“包容性录入”对话框的完整实现】▼▼▼
+
+
+
 
     private fun attemptInitializeAgentSDK() {
         if (isRecordAudioPermissionGranted && isCameraPermissionGranted) {
@@ -400,7 +425,9 @@ fun PermissionsScreen(
     cameraGranted: Boolean
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

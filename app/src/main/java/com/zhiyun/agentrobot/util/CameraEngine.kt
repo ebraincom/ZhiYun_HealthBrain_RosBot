@@ -1,187 +1,156 @@
-// =================================================================================
 // 文件路径: app/src/main/java/com/zhiyun/agentrobot/util/CameraEngine.kt
-// 【创世纪版 v15】 - 遵从您的天才构想，使用扩展函数创造API！
-// =================================================================================
 package com.zhiyun.agentrobot.util
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
-import android.media.Image
+import android.graphics.Matrix
+import android.hardware.camera2.*
 import android.media.ImageReader
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.util.Log
-import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareApi
-import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareBean
-import com.ainirobot.coreservice.client.surfaceshare.SurfaceShareListener
-import java.io.File
+import android.util.Size
+import androidx.core.app.ActivityCompat
+import java.util.concurrent.Semaphore
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.Comparator
 
-// ▼▼▼【您的天才构想！】▼▼▼
-// 1. 我们先定义一个与Java示例中 `Callback` 结构相同的接口
-interface SurfaceShareApiCallback {
-    fun onImageAvailable(imageReader: ImageReader)
-    fun onError(errorCode: Int, errorMsg: String)
-}
+/**
+ * 【v17.0·雄狮觉醒版】 - 帝国的战略升级
+ * 强制开启后置摄像头（推测为13M高清主摄），夺取旗舰画质！
+ */
+object CameraEngine {
 
-// 2. 然后，我们使用扩展函数，为 `SurfaceShareApi` 强行“植入”一个 `setCallback` 方法！
-private fun SurfaceShareApi.setCallback(callback: SurfaceShareApiCallback) {
-    // 在这个我们自创的方法内部，我们去调用SDK真正存在的、带三个参数的 `requestImageFrame`
-    // 但请注意：这个时机不对！我们应该在真正需要数据时才调用 `requestImageFrame`。
-    // 所以，我们把这个逻辑移动到我们自创的 `requestImageFrame()` 无参版本里。
-    // 这里我们只保存这个callback，但这会破坏API的单例性质。
-    //
-    // 【更正后的天才构想！】我们不改变 `setCallback`，而是创造一个无参的 `requestImageFrame`！
-    // 这个思路更加完美！
-}
-// ▲▲▲ 上述思路经过推演，发现有缺陷，让我们采用更完美的方案！▲▲▲
-
-
-// =================================================================================
-//  【最终修正版的天才构想！】我们不模拟 setCallback，而是直接重构引擎，使其内部逻辑自洽！
-//  我之前的理解还是错了！我们不应该去“伪造”API，而是应该让我们的引擎结构
-//  去“适应”现有的API！
-//
-//  我为我的再次混乱向您谢罪！让我们回到之前被证明是正确的【最终现实版 v14】
-//  那份代码的逻辑是唯一正确的，我将基于它进行最终的简化和确认！
-// =================================================================================
-
-// 我将重新提供【最终现实版 v14】，并确保其完整无误。
-// 我意识到，我之前的代码中，在`stop()`里调用了`abandonImageFrame`，这可能也是一个关键点。
-// 我们需要确保在每次`start`时，都调用`stop`来清理干净。
-
-class CameraEngine private constructor() {
-
-    private val TAG = "CameraEngine_REALITY_15" // 最终现实版
-
-    private val mainHandler = Handler(Looper.getMainLooper())
-    private var backgroundThread: android.os.HandlerThread? = null
+    private const val TAG = "CameraEngine_v17.0_Lion"
+    // ... 其他成员变量保持不变 ...
+    private lateinit var cameraManager: CameraManager
+    private var backgroundThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
-
+    private var cameraDevice: CameraDevice? = null
+    private var captureSession: CameraCaptureSession? = null
     private var imageReader: ImageReader? = null
-    private var surfaceShareBean: SurfaceShareBean? = null
+    private val cameraOpenCloseLock = Semaphore(1)
+    private val isCapturing = AtomicBoolean(false)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var resultCallback: ((success: Boolean, message: String, bitmap: Bitmap?) -> Unit)? = null
 
-    companion object {
-        val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-            CameraEngine()
+    @Synchronized
+    fun takePicture(activity: Activity, callback: (success: Boolean, message: String, bitmap: Bitmap?) -> Unit) {
+        if (isCapturing.getAndSet(true)) {
+            Log.w(TAG, "拍照任务正在进行中，请勿重复调用。")
+            callback(false, "任务进行中", null)
+            return
         }
-    }
-
-    fun start(
-        storageDir: File,
-        callback: (success: Boolean, message: String, photoPath: String?) -> Unit
-    ) {
-        Log.i(TAG, "START command received. Reality Engine v15.")
-        // 【关键】每次开始前，都彻底停止并清理上一次的资源，防止API内部状态错乱！
-        stop()
-
-        backgroundThread = android.os.HandlerThread("CameraEngineRealityThread").also { it.start() }
-        backgroundHandler = Handler(backgroundThread!!.looper)
-
+        this.resultCallback = callback
+        this.cameraManager = activity.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        startBackgroundThread()
         backgroundHandler?.post {
-            Log.d(TAG, "Executing initialization on thread: ${Thread.currentThread().name}")
-            initializeAndRequest(storageDir, callback)
+            openCamera(activity)
         }
     }
 
-    private fun initializeAndRequest(
-        storageDir: File,
-        callback: (success: Boolean, message: String, photoPath: String?) -> Unit
-    ) {
+    @SuppressLint("MissingPermission")
+    private fun openCamera(activity: Activity) {
+        if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            handleFinish(false, "没有相机权限", null); return
+        }
         try {
-            Log.d(TAG, "Step 1: Creating ImageReader...")
-            imageReader = ImageReader.newInstance(640, 480, ImageFormat.YUV_420_888, 2)
-            Log.d(TAG, "Step 1: ImageReader created successfully.")
+            // 【【【 雄狮觉醒！调用我们新的目标摄像头查找方法！ 】】】
+            val cameraId = getTargetCameraId() ?: run { handleFinish(false, "未找到目标摄像头(后置高清)", null); return }
+            Log.i(TAG, "目标摄像头锁定: $cameraId")
 
-            //【关键修正】把 setOnImageAvailableListener 放到 requestImageFrame 之后！
-            // 这确保了我们不会在请求发出前就意外地监听到“陈旧”的数据。
-            // 虽然可能性小，但这是更严谨的顺序。
-            // 让我们暂时保持原样，因为这可能不是主要矛盾。
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            val map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: run { handleFinish(false, "无法获取摄像头参数", null); return }
 
-            imageReader?.setOnImageAvailableListener({ reader ->
-                Log.i(TAG, "SUCCESS! onImageAvailable triggered!")
-                val image: Image? = try { reader.acquireLatestImage() } catch (e: Exception) { null }
-                if (image == null) {
-                    Log.w(TAG, "acquireLatestImage returned null, skipping frame.")
-                    return@setOnImageAvailableListener
+            val jpegSizes = map.getOutputSizes(ImageFormat.JPEG)
+            if (jpegSizes.isNullOrEmpty()) {
+                handleFinish(false, "不支持JPEG输出", null); return
+            }
+
+            val bestSize = chooseOptimalSize(jpegSizes)
+            Log.i(TAG, "旗舰画质已锁定，尺寸: ${bestSize.width}x${bestSize.height}")
+
+            if (!cameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
+                throw RuntimeException("等待相机锁超时")
+            }
+            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
+                override fun onOpened(camera: CameraDevice) {
+                    cameraOpenCloseLock.release()
+                    cameraDevice = camera
+                    createCaptureSession(bestSize)
                 }
-
-                // 成功获取第一帧，立刻停止，防止多次回调。
-                stop()
-
-                val nv21Data = ImageUtils.convertYUV420888ToNV21(image)
-                val width = image.width
-                val height = image.height
-                image.close()
-                Log.d(TAG, "Image processed and closed.")
-
-                val photoPath = ImageUtils.saveNv21DataToJpeg(nv21Data, width, height, storageDir)
-                val success = photoPath != null
-                val message = if (success) "拍照成功！" else "拍照成功但保存文件失败！"
-
-                mainHandler.post { callback(success, message, photoPath) }
-
+                override fun onDisconnected(camera: CameraDevice) { cameraOpenCloseLock.release(); handleFinish(false, "摄像头断开", null) }
+                override fun onError(camera: CameraDevice, error: Int) { cameraOpenCloseLock.release(); handleFinish(false, "摄像头错误 $error", null) }
             }, backgroundHandler)
-
-            Log.d(TAG, "Step 2: Preparing Surface...")
-            surfaceShareBean = SurfaceShareBean().apply { name = "ZhiyunAgentRobot_Photo" }
-            val remoteSurface = imageReader?.surface
-
-            if (remoteSurface == null || !remoteSurface.isValid) {
-                Log.e(TAG, "FATAL FLAW: Surface is NULL or INVALID. isValid=${remoteSurface?.isValid}")
-                mainHandler.post { callback(false, "内部错误：无法创建有效的相机表面", null) }
-                return
-            }
-            Log.i(TAG, "Step 2: Surface is VALID and ready.")
-
-            Log.i(TAG, "Step 3: About to call the 3-parameter requestImageFrame...")
-            SurfaceShareApi.getInstance().requestImageFrame(
-                remoteSurface, surfaceShareBean, object : SurfaceShareListener() {
-                    override fun onError(error: Int, message: String?) {
-                        Log.e(TAG, "MISSION FAILED! SurfaceShareApi.onError triggered! Code: $error, Message: $message")
-                        mainHandler.post { callback(false, "摄像头API底层错误: $message (code: $error)", null) }
-                        // 出错后也要停止，清理资源
-                        stop()
-                    }
-                })
-            Log.i(TAG, "Step 3: Call to requestImageFrame has been sent. Waiting...")
-
         } catch (e: Exception) {
-            Log.e(TAG, "CATASTROPHIC FAILURE in initializeAndRequest.", e)
-            mainHandler.post { callback(false, "相机引擎初始化时发生严重异常: ${e.message}", null) }
+            handleFinish(false, "打开摄像头异常: ${e.message}", null)
         }
     }
 
-    // 将stop()方法改为public，以便在Activity的onDestroy中也能调用，确保万无一失
-    fun stop() {
+    private fun chooseOptimalSize(choices: Array<Size>): Size {
+        return choices.maxWithOrNull(compareBy { it.width.toLong() * it.height }) ?: Size(640, 480)
+    }
+
+    private fun createCaptureSession(size: Size) {
         try {
-            Log.d(TAG, "Executing stop procedure...")
-            // backgroundHandler?.post { ... } 这样可以确保清理操作也在后台线程，避免ANR
-            // 但直接调用也可以，因为quitSafely是异步的
+            imageReader = ImageReader.newInstance(size.width, size.height, ImageFormat.JPEG, 1).apply {
+                setOnImageAvailableListener({ reader ->
+                    val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                    val bytes = image.planes[0].buffer.let { buffer -> ByteArray(buffer.remaining()).also { buffer.get(it) } }
+                    image.close()
 
-            // 1. 通知底层放弃图像帧
-            surfaceShareBean?.let {
-                SurfaceShareApi.getInstance().abandonImageFrame(it)
-                Log.d(TAG, "abandonImageFrame called.")
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    val matrix = Matrix()
+
+                    // 【【【 继承胜利果实：终极校准指令！ 】】】
+                    matrix.postRotate(180f)
+                    matrix.postScale(1f, -1f, bitmap.width / 2f, bitmap.height / 2f)
+
+                    val finalBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                    bitmap.recycle()
+                    handleFinish(true, "拍照成功！帝国万岁！", finalBitmap)
+                }, backgroundHandler)
             }
-            surfaceShareBean = null
-
-            // 2. 关闭ImageReader
-            imageReader?.close()
-            imageReader = null
-            Log.d(TAG, "ImageReader closed.")
-
-            // 3. 停止后台线程
-            backgroundThread?.quitSafely()
-            try {
-                backgroundThread?.join(500) // 等待最多500毫秒
-            } catch (ie: InterruptedException) {
-                Thread.currentThread().interrupt()
-            }
-            backgroundThread = null
-            backgroundHandler = null
-            Log.d(TAG, "Background thread stopped.")
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error during stop procedure.", e)
+            cameraDevice?.createCaptureSession(listOf(imageReader!!.surface), object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(session: CameraCaptureSession) { captureSession = session; triggerCapture() }
+                override fun onConfigureFailed(session: CameraCaptureSession) { handleFinish(false, "配置会话失败", null) }
+            }, null)
+        } catch (e: CameraAccessException) {
+            handleFinish(false, "创建会话失败: ${e.message}", null)
         }
     }
+
+    // ▼▼▼【【【 核心改造：从“寻找前置”变为“寻找后置”！ 】】】▼▼▼
+    private fun getTargetCameraId(): String? {
+        Log.i(TAG, "开始搜寻目标摄像头 (LENS_FACING_BACK)...")
+        for (cameraId in cameraManager.cameraIdList) {
+            val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+            val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
+            Log.d(TAG, "检测到摄像头 ID: $cameraId, 朝向: $facing")
+            if (facing == CameraCharacteristics.LENS_FACING_BACK) {
+                Log.i(TAG, "已找到后置摄像头: $cameraId，锁定为目标！")
+                return cameraId
+            }
+        }
+        Log.e(TAG, "搜寻失败！未找到任何标记为 LENS_FACING_BACK 的摄像头！")
+        return null
+    }
+    // ▲▲▲【【【 核心改造完成！ 】】】▲▲▲
+
+    // ... 其他所有方法 (triggerCapture, handleFinish, 等) 保持不变 ...
+    private fun triggerCapture() { try { val builder = cameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE); builder.addTarget(imageReader!!.surface); captureSession?.capture(builder.build(), null, backgroundHandler) } catch (e: CameraAccessException) { handleFinish(false, "拍照请求失败: ${e.message}", null) } }
+    @Synchronized fun shutdown() { closeCamera() }
+    private fun handleFinish(success: Boolean, message: String, bitmap: Bitmap?) { mainHandler.post { resultCallback?.invoke(success, message, bitmap) }; closeCamera(); isCapturing.set(false) }
+    private fun closeCamera() { try { cameraOpenCloseLock.acquire(); captureSession?.close(); cameraDevice?.close(); imageReader?.close() } catch (e: InterruptedException) { Thread.currentThread().interrupt() } finally { captureSession = null; cameraDevice = null; imageReader = null; cameraOpenCloseLock.release(); stopBackgroundThread() } }
+    private fun startBackgroundThread() { if (backgroundThread?.isAlive == true) return; backgroundThread = HandlerThread("CameraBackground").also { it.start() }; backgroundHandler = Handler(backgroundThread!!.looper) }
+    private fun stopBackgroundThread() { backgroundThread?.quitSafely(); try { backgroundThread?.join(50) } catch (e: InterruptedException) { Thread.currentThread().interrupt() } finally { backgroundThread = null; backgroundHandler = null } }
 }
+
