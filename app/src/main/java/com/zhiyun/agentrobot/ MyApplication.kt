@@ -17,9 +17,15 @@ import com.zhiyun.agentrobot.data.defaultRole // <-- 2. 导入我们定义的 de
 import com.ainirobot.coreservice.client.RobotApi
 import com.zhiyun.agentrobot.util.CameraEngine // <-- 导入CameraEngine
 import android.app.Activity // <-- 【修复2】导入 Activity 类
+// ▼▼▼ 【V2.0新增导入】 ▼▼▼
+import android.os.RemoteException
+import com.ainirobot.coreservice.client.ApiListener
+import com.ainirobot.coreservice.client.module.ModuleCallbackApi
+import com.zhiyun.agentrobot.manager.RobotApiManager
+// ▲▲▲ 【V2.0新增导入】 ▲▲▲
 
 /**
- * 【v11.0·架构统一版】
+ * 【v12.0·架构统一版，融合了底层Robot调用】
  * 修复了对CameraEngine的错误调用方式，确保应用生命周期能正确管理引擎
  */
 
@@ -28,7 +34,7 @@ class MyApplication : Application() {
     lateinit var appAgent: AppAgent
         private set
     private var isAgentSDKInitialized: Boolean = false
-    private var TAG = "MyApplication_v11"
+    private var TAG = "MyApplication_v12_Puppeteer" // 更新版本号，便于调试
 
     override fun onCreate() {
         Log.d("MyApplication", "Application onCreate: START") // 更早的日志
@@ -45,10 +51,67 @@ class MyApplication : Application() {
         // 初始化 CameraEngine
         initializeCameraEngineManager()
         Log.i(TAG, "CameraEngine.instance.initialize() command has been sent.")
+        // -----------------------------------------------------------------
+        // 3. ▼▼▼ 【V2.0核心新增】建立与RobotAPI王国的全局“外交关系” ▼▼▼
+        // -----------------------------------------------------------------
+        setupRobotApiConnection()
+        // ▲▲▲ 【V2.0核心新增】▲▲▲
+        Log.d(TAG, "Application onCreate: FINISHED")
+
     }
     /**
-     * 【新增】一个独立的、职责清晰的方法，用于管理CameraEngine的生命周期。
+     * 【V2.0核心新增】
+     * 职责：在Application启动时，与RobotAPI Server建立连接，并设置全局回调，
+     * 将底层状态变化通知给我们专业的RobotApiManager。
      */
+
+    private fun setupRobotApiConnection() {
+        Log.d(TAG, "开始连接 RobotAPI Server...")
+        RobotApi.getInstance().connectServer(this, object : ApiListener {
+
+            override fun handleApiConnected() {
+                Log.i(TAG, "RobotAPI Server 连接成功！准备设置全局回调...")
+
+                // Server已连接成功，立刻设置我们全局的ModuleCallback
+                RobotApi.getInstance().setCallback(object : ModuleCallbackApi() {
+                    // 控制权恢复
+                    override fun onRecovery() {
+                        // 通知“司令部”，武器已上膛
+                        RobotApiManager.onApiReady()
+                    }
+
+                    // 控制权被剥夺
+                    override fun onSuspend() {
+                        // 通知“司令部”，武器被收走
+                        RobotApiManager.onApiSuspend()
+                    }
+
+                    // 接收底层语音指令（可以先留空，我们主要用AgentOS）
+                    @Throws(RemoteException::class)
+                    override fun onSendRequest(reqId: Int, reqType: String, reqText: String, reqParam: String): Boolean {
+                        Log.d(TAG, "收到全局底层请求: reqText=$reqText")
+                        return false // 返回false，表示我们不处理，交给系统
+                    }
+                })
+
+                // 首次连接成功，也应视为API就绪
+                RobotApiManager.onApiReady()
+            }
+
+            override fun handleApiDisconnected() {
+                Log.e(TAG, "RobotAPI Server 连接已断开！")
+                RobotApiManager.onApiSuspend()
+            }
+
+            override fun handleApiDisabled() {
+                Log.e(TAG, "RobotAPI Server 已被禁用！")
+                RobotApiManager.onApiSuspend()
+            }
+        })
+    }
+    // =================================================================================
+    //  以下是您原有的、经过验证的优秀代码，我们将其完整保留
+    // =================================================================================
     private fun initializeCameraEngineManager() {
         Log.i(TAG, "Initializing CameraEngine Global Manager...")
         // 我们不需要在onCreate中显式调用 CameraEngine.instance.initialize() 或 start()。

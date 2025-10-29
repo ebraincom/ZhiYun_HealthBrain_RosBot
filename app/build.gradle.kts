@@ -89,6 +89,9 @@ dependencies {
 
     // OkHttp Logging Interceptor - (强烈推荐) 用于在Logcat中打印详细的网络请求和响应日志，方便调试
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
+    // 添加了EventBus的依赖,实现V2.0底层调用
+    implementation("org.greenrobot:eventbus:3.3.1")
+
 
 
 

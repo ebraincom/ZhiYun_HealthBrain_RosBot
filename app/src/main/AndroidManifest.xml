@@ -42,7 +42,7 @@
         android:required="true" />
     <uses-feature
         android:name="android.hardware.camera.autofocus"
-        android:required="true" />
+        android:required="false" />
 
     <application
         android:name=".MyApplication"
