@@ -42,14 +42,10 @@ import com.zhiyun.agentrobot.ui.family.FamilyMemberActivity
 import androidx.appcompat.app.AppCompatActivity
 import com.ainirobot.agent.base.ActionResult
 import com.ainirobot.agent.base.ActionStatus
-import com.zhiyun.agentrobot.event.HeadMovement
-import com.zhiyun.agentrobot.event.HeadMovementEvent
 import com.zhiyun.agentrobot.manager.RobotApiManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import org.greenrobot.eventbus.EventBus
-import org.greenrobot.eventbus.Subscribe
-import org.greenrobot.eventbus.ThreadMode
+import com.zhiyun.agentrobot.fragment.RobotControlFragment
 
 
 /**
@@ -68,6 +64,12 @@ class MainActivity : ComponentActivity() {
     private val weatherDataState: MutableState<String> = mutableStateOf("天气获取中...")
 
     private val apiService by lazy { MediaApiClient.mediaApiService }
+
+    // RobotControlFragment 实例，我们自己编写的、用于封装所有机器人硬件操作的模块
+    private var robotControllerInstance: RobotControlFragment? = null
+
+
+    private val ACTION_PREFIX = "com.zhiyun.agentrobot.action."
     val mediaApiService = MediaApiClient.mediaApiService
 
 
@@ -158,10 +160,9 @@ class MainActivity : ComponentActivity() {
         checkInitialPermissions()
         updateHomepageWeather()
 
-        EventBus.getDefault().register(this)
-        Log.i("MainActivity_Final", "EventBus '指挥系统' 已注册。")
 
-        Log.i("MainActivity_Final", "onCreate: FINISHED.")
+
+        registerSceneSwitchActions()
     }
 
 
@@ -324,12 +325,6 @@ class MainActivity : ComponentActivity() {
         pageAgent.registerAction(playMusicAction) // <-- 改为静态注册，注释保留
         pageAgent.registerAction(stopMusicAction) // <-- 改为静态注册，注释保留
 
-        // ▼▼▼ 【V2.0 实战 新增】: 为指挥官配备新的语音指令识别能力（抬头/低头/复位） ▼▼▼
-        registerHeadAction("抬头", "com.zhiyun.agentrobot.action.HEAD_UP", HeadMovement.UP)
-        registerHeadAction("低头", "com.zhiyun.agentrobot.action.HEAD_DOWN", HeadMovement.DOWN)
-        registerHeadAction("头复位", "com.zhiyun.agentrobot.action.HEAD_RESET", HeadMovement.RESET)
-        // ▲▲▲ 【V2.0 实战 新增】 ▲▲▲
-
 
         // Objective的描述变得更通用，不再强行绑定“小助手”
         pageAgent.setObjective(
@@ -339,6 +334,15 @@ class MainActivity : ComponentActivity() {
                     "2. '查询限行'：调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
                     "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数,不局限七里香。\n" +
                     "4. '停止播放'：调用'com.zhiyun.action.STOP_MUSIC'工具。\n" +
+                    "5. 当用户说'进入控制模式'或'机器人控制'等类似指令时，调用 '" + ACTION_PREFIX + "ENTER_CONTROL_MODE' 工具。\n" +
+                    "6. 【前进】: 调用 '" + ACTION_PREFIX + "MOTION_GO_FORWARD'。如果用户提到距离(米/厘米)，提取为'distance'参数(米)；如果提到'避障'，提取布尔值'avoid'为true。\n" +
+                    "7. 【后退】: 调用 '" + ACTION_PREFIX + "MOTION_GO_BACKWARD'。如果用户提到距离(米/厘米)，提取为'distance'参数(米)。\n" +
+                    "8. 【左转】: 调用 '" + ACTION_PREFIX + "MOTION_TURN_LEFT'。如果用户提到角度(度)，提取为'angle'参数(度)。\n" +
+                    "9. 【右转】: 调用 '" + ACTION_PREFIX + "MOTION_TURN_RIGHT'。如果用户提到角度(度)，提取为'angle'参数(度)。\n" +
+                    "10. 【停止移动】: 调用 '" + ACTION_PREFIX + "MOTION_STOP_MOVE'。\n" +
+                    "11. 【移动头部】: 调用 '" + ACTION_PREFIX + "HEAD_MOVE'。提取'hAngle'(左右角度)和'vAngle'(上下角度)。默认是相对运动，如果用户说'转到xx度'，则提取'mode'为'absolute'。\n" +
+                    "12. 【头部回正】: 调用 '" + ACTION_PREFIX + "HEAD_RESET'。\n" +
+
                     "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
         )
         Log.i("MainActivity_Final", "Home page actions and a more GENERIC objective have been set.")
@@ -431,60 +435,54 @@ class MainActivity : ComponentActivity() {
         }
         isLoadingPermissions = false
     }
-    // ▼▼▼ 【V2.0 实战 新增】: 实现完整的指挥系统逻辑 ▼▼▼
-
-    /**
-     * 【V2.0新增】
-     * 一个通用的Action注册辅助函数。
-     * @param displayName 用于自然语言理解的“路标”
-     * @param name Action的唯一ID
-     * @param movement 要发送的事件类型
-     */
-    private fun registerHeadAction(displayName: String, name: String, movement: HeadMovement) {
+    private fun registerSceneSwitchActions() {
+        val actionName = "com.zhiyun.agentrobot.action.ENTER_CONTROL_MODE"
         val action = Action(
-            name,
-            displayName,
-            "语音控制机器人头部${displayName}", // 详细描述，帮助大模型理解
-            // ▼▼▼ 【最终修正 v3】: Action构造函数需要一个参数列表，即使是空的。▼▼▼
+            actionName,
+            "进入控制模式",
+            "当用户说'进入控制模式'或'机器人控制'时，调用此工具来加载机器人运动控制界面。",
             parameters = emptyList(),
-            // ▲▲▲ 【最终修正 v3】▲▲▲
             executor = object : ActionExecutor {
                 override fun onExecute(action: Action, params: Bundle?): Boolean {
                     lifecycleScope.launch {
-                        try {
-                            EventBus.getDefault().post(HeadMovementEvent(movement))
-                            Log.d("MainActivity_Puppeteer", "Action '${action.displayName}' executed. Event sent: $movement")
-                            // 2. 【关键修正】我们不再立即汇报，而是“假装”这个操作需要时间！
-                            // 我们在这里等待2秒，模拟硬件执行所需的时间。
-                            kotlinx.coroutines.delay(2000) // 延迟2秒
-                            action.notify(ActionResult(ActionStatus.SUCCEEDED))
-                        } catch (e: Exception) {
-                            Log.e("MainActivity_Puppeteer", "Error executing action '${action.displayName}'", e)
-                            action.notify(ActionResult(ActionStatus.FAILED))
+                        Log.i("MainActivity", "Action '进入控制模式'被触发，准备加载RobotControlFragment...")
+                        // 使用主线程来执行UI操作
+                        runOnUiThread {
+                            showRobotControlFragment()
                         }
+                        action.notify(ActionResult(ActionStatus.SUCCEEDED))
                     }
                     return true
                 }
             }
         )
         pageAgent.registerAction(action)
+        Log.i("MainActivity", "场景切换Action '进入控制模式' 已注册。")
     }
-    // 这是EventBus的事件接收器，是解耦架构的核心。
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onHeadMovementEvent(event: HeadMovementEvent) {
-        Log.i("MainActivity_Puppeteer", "收到头部控制事件: ${event.movement}。准备调用RobotApiManager...")
 
-        // MainActivity作为指挥官，只负责下达战术指令，不问执行细节！
-        when (event.movement) {
-            HeadMovement.UP -> RobotApiManager.moveHead(25)     // 向上看25度
-            HeadMovement.DOWN -> RobotApiManager.moveHead(-15)  // 向下看15度
-            HeadMovement.RESET -> RobotApiManager.resetHead()
+
+    private fun showRobotControlFragment() {
+        // 【核心修正】: 我们不再需要任何FragmentManager！
+        // 检查我们的后台服务实例是否已经被创建过
+        if (robotControllerInstance == null) {
+            Log.d("MainActivity", "后台服务实例不存在，准备首次创建 RobotControlFragment (服务类)...")
+
+            // 【换心手术】: 创建我们新的、拥有灵魂的“肉身”实例
+            // 它不再是Fragment，而是一个普通的Kotlin类
+            // 我们在创建它的时候，就把完成使命所需要的工具（pageAgent, lifecycleScope）交给它！
+            robotControllerInstance = RobotControlFragment(pageAgent, lifecycleScope)
+
+            // 【激活灵魂】: 实例创建后，立刻让它去注册所有机器人动作
+            robotControllerInstance?.setupRobotActions()
+
+            Log.i("MainActivity", "后台服务 RobotControlFragment (服务类) 已创建并完成动作注册。")
+        } else {
+            // 如果实例已存在，说明所有动作早已注册完毕，我们什么都不用做。
+            Log.i("MainActivity", "后台服务 RobotControlFragment (服务类) 已存在，无需重复创建。")
         }
     }
-    // 在Activity销毁时，注销EventBus，防止内存泄漏。
+    // 在Activity销毁时，注销。防止内存泄漏。
     override fun onDestroy() {
-        EventBus.getDefault().unregister(this)
-        Log.i("MainActivity_Puppeteer", "EventBus '指挥系统' 已注销。")
         super.onDestroy()
     }
 }

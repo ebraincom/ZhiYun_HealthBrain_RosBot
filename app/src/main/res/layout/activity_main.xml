@@ -20,5 +20,18 @@
         android:textSize="24sp"
         android:textColor="@android:color/black" />
 
+    <!-- ▼▼▼【V3.0 微创手术新增】▼▼▼
+         这是我们为 Fragment 准备的专用容器。
+         我们直接把它作为第三个元素添加到 LinearLayout 中。
+         因为我们当前的 Fragment 没有UI，所以它占用的空间是看不见的，
+         layout_height="0dp" 和 layout_weight="1" 是一种常用的占满剩余空间的方式，
+         但对于无UI的Fragment，设置为0dp即可，不会影响现有布局。
+         ▲▲▲【V3.0 微创手术新增】▲▲▲ -->
+    <FrameLayout
+        android:id="@+id/robot_control_container"
+        android:layout_width="match_parent"
+        android:layout_height="0dp" />
+
+
 
 </LinearLayout>
