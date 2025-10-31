@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,6 +47,8 @@ import com.zhiyun.agentrobot.manager.RobotApiManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import com.zhiyun.agentrobot.fragment.RobotControlFragment
+import com.ainirobot.coreservice.client.RobotApi
+
 
 
 /**
@@ -54,19 +57,25 @@ import com.zhiyun.agentrobot.fragment.RobotControlFragment
  */
 class MainActivity : ComponentActivity() {
 
+
+
     // --- 状态变量声明区 ---
+    private val TAG = "MainActivity"
     private var isRecordAudioPermissionGranted by mutableStateOf(false)
     private var isCameraPermissionGranted by mutableStateOf(false)
     private var isAgentSdkInitialized by mutableStateOf(false)
     private var isLoadingPermissions by mutableStateOf(true)
     private lateinit var pageAgent: PageAgent
+    private var checkTimes = 0
+    private val MAX_CHECK_TIMES = 20 // 重试20次（约6秒），如果API还未就绪则放弃
+
     private val trafficRepository = TrafficRepository()
     private val weatherDataState: MutableState<String> = mutableStateOf("天气获取中...")
 
     private val apiService by lazy { MediaApiClient.mediaApiService }
 
-    // RobotControlFragment 实例，我们自己编写的、用于封装所有机器人硬件操作的模块
-    private var robotControllerInstance: RobotControlFragment? = null
+    // RobotControlFragment 实例，我们自己编写的,更新后注释掉
+    // private var robotControllerInstance: RobotControlFragment? = null
 
 
     private val ACTION_PREFIX = "com.zhiyun.agentrobot.action."
@@ -159,10 +168,8 @@ class MainActivity : ComponentActivity() {
 
         checkInitialPermissions()
         updateHomepageWeather()
-
-
-
-        registerSceneSwitchActions()
+        // ▼▼▼【最终决议1/2：部署机器人特种部队】▼▼▼
+        deployRobotActionsWhenReady()
     }
 
 
@@ -192,6 +199,8 @@ class MainActivity : ComponentActivity() {
 
     // --- defineAndRegisterActions 方法 ---
     private fun defineAndRegisterActions() {
+
+        Log.i(TAG, "V18方案: 开始注册原有的核心业务Action（天气、音乐等）...")
 
         val cityParameter = Parameter("city", ParameterType.STRING, "用户想要查询的城市名称，例如'北京'、'上海'", true)
 
@@ -334,15 +343,6 @@ class MainActivity : ComponentActivity() {
                     "2. '查询限行'：调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
                     "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数,不局限七里香。\n" +
                     "4. '停止播放'：调用'com.zhiyun.action.STOP_MUSIC'工具。\n" +
-                    "5. 当用户说'进入控制模式'或'机器人控制'等类似指令时，调用 '" + ACTION_PREFIX + "ENTER_CONTROL_MODE' 工具。\n" +
-                    "6. 【前进】: 调用 '" + ACTION_PREFIX + "MOTION_GO_FORWARD'。如果用户提到距离(米/厘米)，提取为'distance'参数(米)；如果提到'避障'，提取布尔值'avoid'为true。\n" +
-                    "7. 【后退】: 调用 '" + ACTION_PREFIX + "MOTION_GO_BACKWARD'。如果用户提到距离(米/厘米)，提取为'distance'参数(米)。\n" +
-                    "8. 【左转】: 调用 '" + ACTION_PREFIX + "MOTION_TURN_LEFT'。如果用户提到角度(度)，提取为'angle'参数(度)。\n" +
-                    "9. 【右转】: 调用 '" + ACTION_PREFIX + "MOTION_TURN_RIGHT'。如果用户提到角度(度)，提取为'angle'参数(度)。\n" +
-                    "10. 【停止移动】: 调用 '" + ACTION_PREFIX + "MOTION_STOP_MOVE'。\n" +
-                    "11. 【移动头部】: 调用 '" + ACTION_PREFIX + "HEAD_MOVE'。提取'hAngle'(左右角度)和'vAngle'(上下角度)。默认是相对运动，如果用户说'转到xx度'，则提取'mode'为'absolute'。\n" +
-                    "12. 【头部回正】: 调用 '" + ACTION_PREFIX + "HEAD_RESET'。\n" +
-
                     "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
         )
         Log.i("MainActivity_Final", "Home page actions and a more GENERIC objective have been set.")
@@ -435,55 +435,65 @@ class MainActivity : ComponentActivity() {
         }
         isLoadingPermissions = false
     }
-    private fun registerSceneSwitchActions() {
-        val actionName = "com.zhiyun.agentrobot.action.ENTER_CONTROL_MODE"
-        val action = Action(
-            actionName,
-            "进入控制模式",
-            "当用户说'进入控制模式'或'机器人控制'时，调用此工具来加载机器人运动控制界面。",
-            parameters = emptyList(),
-            executor = object : ActionExecutor {
-                override fun onExecute(action: Action, params: Bundle?): Boolean {
-                    lifecycleScope.launch {
-                        Log.i("MainActivity", "Action '进入控制模式'被触发，准备加载RobotControlFragment...")
-                        // 使用主线程来执行UI操作
-                        runOnUiThread {
-                            showRobotControlFragment()
-                        }
-                        action.notify(ActionResult(ActionStatus.SUCCEEDED))
-                    }
-                    return true
-                }
-            }
-        )
-        pageAgent.registerAction(action)
-        Log.i("MainActivity", "场景切换Action '进入控制模式' 已注册。")
-    }
+    // ▼▼▼【最终决议 2/2：机器人特种部队的行动纲领】▼▼▼
 
+    private var robotActionsDeployed = false // 部署旗帜，确保任务只执行一次
 
-    private fun showRobotControlFragment() {
-        // 【核心修正】: 我们不再需要任何FragmentManager！
-        // 检查我们的后台服务实例是否已经被创建过
-        if (robotControllerInstance == null) {
-            Log.d("MainActivity", "后台服务实例不存在，准备首次创建 RobotControlFragment (服务类)...")
+    /**
+     * 机器人行动部署的唯一入口。
+     * 它像一个耐心的哨兵，反复检查API状态，直到就绪为止。
+     */
+    private fun deployRobotActionsWhenReady() {
+        // 如果已部署，或Activity已销毁，则部队立刻解散
+        if (robotActionsDeployed || isDestroyed) {
+            return
+        }
 
-            // 【换心手术】: 创建我们新的、拥有灵魂的“肉身”实例
-            // 它不再是Fragment，而是一个普通的Kotlin类
-            // 我们在创建它的时候，就把完成使命所需要的工具（pageAgent, lifecycleScope）交给它！
-            robotControllerInstance = RobotControlFragment(pageAgent, lifecycleScope)
-
-            // 【激活灵魂】: 实例创建后，立刻让它去注册所有机器人动作
-            robotControllerInstance?.setupRobotActions()
-
-            Log.i("MainActivity", "后台服务 RobotControlFragment (服务类) 已创建并完成动作注册。")
+        // 检查RobotAPI是否完全就绪
+        if (RobotApi.getInstance().isApiConnectedService && RobotApi.getInstance().isActive) {
+            // 时机已到！API就绪！
+            Log.i(TAG, "【最终决议】: RobotAPI已就绪！开始执行机器人功能部署！")
+            executeRobotActionDeployment()
         } else {
-            // 如果实例已存在，说明所有动作早已注册完毕，我们什么都不用做。
-            Log.i("MainActivity", "后台服务 RobotControlFragment (服务类) 已存在，无需重复创建。")
+            // 时机未到，300毫秒后再次检查，保持耐心
+            android.os.Handler(Looper.getMainLooper()).postDelayed({ deployRobotActionsWhenReady() }, 300)
         }
     }
-    // 在Activity销毁时，注销。防止内存泄漏。
-    override fun onDestroy() {
-        super.onDestroy()
+    private fun executeRobotActionDeployment() {
+        if (robotActionsDeployed) return // 双重保险，防止重复执行
+
+        // 1. 从兵工厂获取所有机器人Action
+        val allRobotActions = RobotActionFactory.createAllRobotActions(lifecycleScope)
+
+        // 2. 将这些Action【补充注册】进AgentOS的大脑
+        allRobotActions.forEach { action ->
+            pageAgent.registerAction(action)
+            Log.i(TAG, "【最终决议】: 机器人Action已注册: ${action.name}")
+        }
+
+        // 3. 【最终的关键一步：更新大脑认知】
+        // 用一个包含【所有新旧功能】的、最完整的Objective，覆盖掉临时的Objective
+        pageAgent.setObjective(
+            "这是一个应用主页。你的首要任务是与用户进行友好、有帮助的对话。" +
+                    "当用户的意图符合以下工具的功能时，你必须优先调用对应的工具：\n" +
+                    "1. '查询天气'：调用'com.zhiyun.action.QUERY_WEATHER'工具。\n" +
+                    "2. '查询限行'：调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
+                    "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数,不局限七里香。\n" +
+                    "4. '停止播放'：调用'com.zhiyun.action.STOP_MUSIC'工具。\n" +
+                    // 机器人控制
+                    "5. 【前进】: 当用户说'前进'、'往前走'时, 调用 'com.zhiyun.agentrobot.action.MOTION_GO_FORWARD'。可提取'distance'参数(米)。\n" +
+                    "6. 【后退】: 当用户说'后退'、'往后退'时, 调用 'com.zhiyun.agentrobot.action.MOTION_GO_BACKWARD'。可提取'distance'参数。\n" +
+                    "7. 【左转】: 当用户说'向左转'、'左转'时, 调用 'com.zhiyun.agentrobot.action.MOTION_TURN_LEFT'。可提取'angle'参数(度)。\n" +
+                    "8. 【右转】: 当用户说'向右转'、'右转'时, 调用 'com.zhiyun.agentrobot.action.MOTION_TURN_RIGHT'。可提取'angle'参数。\n" +
+                    "9. 【停止移动】: 当用户说'停'、'停下'时, 调用 'com.zhiyun.agentrobot.action.MOTION_STOP_MOVE'。\n" +
+                    "10. 【移动头部】: 当用户说'抬头'、'低头'、'头向左/右'时, 调用 'com.zhiyun.agentrobot.action.HEAD_MOVE'。提取'vAngle'(上下, 范围0-90)和'hAngle'(左右, 范围-120-120)参数。\n" +
+                    "11. 【头部回正】: 当用户说'头回正'时, 调用 'com.zhiyun.agentrobot.action.HEAD_RESET'。\n" +
+
+                    "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
+        )
+
+        robotActionsDeployed = true // 升起胜利的旗帜，任务完成！
+        Log.i(TAG, "【最终决议】: 机器人功能部署完毕，最终Objective已设定。系统完全就绪！")
     }
 }
 
