@@ -58,9 +58,8 @@ import com.ainirobot.coreservice.client.RobotApi
 class MainActivity : ComponentActivity() {
 
 
-
     // --- 状态变量声明区 ---
-    private val TAG = "MainActivity"
+    private val TAG = "MainActivity_Fusion"  // 新TAG，便于追踪日志
     private var isRecordAudioPermissionGranted by mutableStateOf(false)
     private var isCameraPermissionGranted by mutableStateOf(false)
     private var isAgentSdkInitialized by mutableStateOf(false)
@@ -69,14 +68,18 @@ class MainActivity : ComponentActivity() {
     private var checkTimes = 0
     private val MAX_CHECK_TIMES = 20 // 重试20次（约6秒），如果API还未就绪则放弃
 
+    // ▼▼▼【部署旗帜】▼▼▼
+    private var robotActionsDeployed = false // 确保任务只执行一次
+
+
     private val trafficRepository = TrafficRepository()
     private val weatherDataState: MutableState<String> = mutableStateOf("天气获取中...")
 
     private val apiService by lazy { MediaApiClient.mediaApiService }
 
-    // RobotControlFragment 实例，我们自己编写的,更新后注释掉
+    // RobotControlFragment 实例，我们自己编写的,更新后添加上
     // private var robotControllerInstance: RobotControlFragment? = null
-
+    private var robotControlFragment: RobotControlFragment? = null
 
     private val ACTION_PREFIX = "com.zhiyun.agentrobot.action."
     val mediaApiService = MediaApiClient.mediaApiService
@@ -111,14 +114,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.i("MainActivity_Final", "onCreate: Initializing.")
-
-
         initDependencies()
         setupListeners()
 
+
         setContent {
             ZhiyunAgentRobotTheme {
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
                     // --- 关键情报：获取Compose世界里的上下文，这是启动新Activity最安全、最标准的方式！ ---
                     val context = LocalContext.current
 
@@ -127,14 +132,20 @@ class MainActivity : ComponentActivity() {
                             weatherDataState = weatherDataState,
                             onMoreConsultClick = {
                                 startActivity(Intent(this@MainActivity, GuideActivity::class.java))
-                                Log.i("MainActivity_Final", "onMoreConsultClick: Starting GuideActivity.")
+                                Log.i(
+                                    "MainActivity_Final",
+                                    "onMoreConsultClick: Starting GuideActivity."
+                                )
                             },
                             // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
                             // ★★★【跃迁信标已嵌入】：这里是唯一的、需要您添加/修改的核心代码！★★★
                             // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
                             onMemoryShowcaseClick = {
                                 // 【设计哲学】：点击事件的唯一职责，就是用最经典的方式启动一个新Activity！
-                                Log.d("MainActivity_Final", "onMemoryShowcaseClick: 即将启动 FamilyMemberActivity。")
+                                Log.d(
+                                    "MainActivity_Final",
+                                    "onMemoryShowcaseClick: 即将启动 FamilyMemberActivity。"
+                                )
 
                                 // 【跃迁指令】：创建指向我们新世界“FamilyMemberActivity”的意图(Intent)。
                                 val intent = Intent(context, FamilyMemberActivity::class.java)
@@ -148,13 +159,18 @@ class MainActivity : ComponentActivity() {
 
                             userProfile = UserProfile(name = "王阿姨")
                         )
-                        isLoadingPermissions -> Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+
+                        isLoadingPermissions -> Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 CircularProgressIndicator()
                                 Spacer(Modifier.height(8.dp))
                                 Text("正在准备应用...")
                             }
                         }
+
                         else -> PermissionsScreen(
                             onGrantRecordAudio = { launchRecordAudioPermissionRequest() },
                             onGrantCamera = { launchCameraPermissionRequest() },
@@ -168,8 +184,11 @@ class MainActivity : ComponentActivity() {
 
         checkInitialPermissions()
         updateHomepageWeather()
-        // ▼▼▼【最终决议1/2：部署机器人特种部队】▼▼▼
-        deployRobotActionsWhenReady()
+        deployHardwareWhenReady()
+
+        // deployRobotActionsWhenReady()
+
+
     }
 
 
@@ -181,7 +200,10 @@ class MainActivity : ComponentActivity() {
 
         // 1. 【移除“思想钢印”】
         // 我们不再强制恢复默认角色。主页将“顺从”由GuideActivity设定的全局角色。
-        Log.i("MainActivity_Final", "Strategy Update: No longer forcing default role. Accepting global role.")
+        Log.i(
+            "MainActivity_Final",
+            "Strategy Update: No longer forcing default role. Accepting global role."
+        )
 
         // 2. 【保留必要职责】为当前页面注册工具并设置Objective
         defineAndRegisterActions()
@@ -202,7 +224,12 @@ class MainActivity : ComponentActivity() {
 
         Log.i(TAG, "V18方案: 开始注册原有的核心业务Action（天气、音乐等）...")
 
-        val cityParameter = Parameter("city", ParameterType.STRING, "用户想要查询的城市名称，例如'北京'、'上海'", true)
+        val cityParameter = Parameter(
+            "city",
+            ParameterType.STRING,
+            "用户想要查询的城市名称，例如'北京'、'上海'",
+            true
+        )
 
         val queryWeatherAction = Action(
             "com.zhiyun.action.QUERY_WEATHER", "查询天气", "查询指定城市当天的天气信息。",
@@ -226,7 +253,9 @@ class MainActivity : ComponentActivity() {
             }
         )
         val queryRestrictionAction = Action(
-            "com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION", "查询限行", "查询指定城市当天的机动车尾号限行信息，如果用户没有说城市，就默认查询北京。",
+            "com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION",
+            "查询限行",
+            "查询指定城市当天的机动车尾号限行信息，如果用户没有说城市，就默认查询北京。",
             emptyList(),
             object : ActionExecutor {
                 override fun onExecute(action: Action, params: Bundle?): Boolean {
@@ -272,7 +301,10 @@ class MainActivity : ComponentActivity() {
                                 val artist = firstSong.artist ?: "未知艺术家"
 
                                 AgentCore.tts("好的，为您播放${artist}的${firstSong.title}")
-                                Log.i("playMusicAction", "歌曲找到: ${firstSong.title}, URL: $songUrl")
+                                Log.i(
+                                    "playMusicAction",
+                                    "歌曲找到: ${firstSong.title}, URL: $songUrl"
+                                )
 
                                 MusicPlayerEngine.playMusic(
                                     url = songUrl,
@@ -288,7 +320,10 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             } else {
-                                Log.w("playMusicAction", "服务器未找到歌曲 '$songName'。响应: ${response.message}")
+                                Log.w(
+                                    "playMusicAction",
+                                    "服务器未找到歌曲 '$songName'。响应: ${response.message}"
+                                )
                                 AgentCore.tts("抱歉，我的曲库里暂时还没有这首歌。")
                                 // 【失败路径3】: 只做TTS提示，不调用notify()！
                             }
@@ -304,7 +339,8 @@ class MainActivity : ComponentActivity() {
         )
 
         // ▼▼▼【“停止播放”Action】▼▼▼
-        val stopMusicAction = Action(    name = "com.zhiyun.agentrobot.action.STOP_MUSIC",
+        val stopMusicAction = Action(
+            name = "com.zhiyun.agentrobot.action.STOP_MUSIC",
             displayName = "停止播放音乐",
             desc = "当用户想要停止当前正在播放的音乐时，调用此工具。例如用户说'停止播放'、'别唱了'、'安静'等。",
             parameters = emptyList(),
@@ -355,6 +391,7 @@ class MainActivity : ComponentActivity() {
                 if (transcription.final) Log.i("MainActivity_Final", "ASR: ${transcription.text}")
                 return false
             }
+
             override fun onTTSResult(transcription: Transcription): Boolean = false
         })
         Log.i("MainActivity_Final", "OnTranscribeListener has been set for home page.")
@@ -364,12 +401,14 @@ class MainActivity : ComponentActivity() {
         pageAgent = PageAgent(this)
         Log.i("MainActivity_Final", "initDependencies: pageAgent initialized.")
     }
+
     private fun updateHomepageWeather() {
         lifecycleScope.launch {
             Log.d("MainActivity_Final", "updateHomepageWeather: Starting weather update.")
             try {
                 val weatherInfo = trafficRepository.getWeatherInfoForHomepage("北京")
-                weatherDataState.value = weatherInfo?.let { "${it.weatherText} ${it.temperature}℃" } ?: "天气获取失败"
+                weatherDataState.value =
+                    weatherInfo?.let { "${it.weatherText} ${it.temperature}℃" } ?: "天气获取失败"
                 Log.d("MainActivity_Final", "Weather updated: ${weatherDataState.value}")
             } catch (e: Exception) {
                 weatherDataState.value = "天气获取异常"
@@ -380,8 +419,10 @@ class MainActivity : ComponentActivity() {
 
     private fun checkInitialPermissions() {
         isLoadingPermissions = true
-        val recordAudioHasPermission = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        val cameraHasPermission = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val recordAudioHasPermission =
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val cameraHasPermission =
+            checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
         isRecordAudioPermissionGranted = recordAudioHasPermission
         isCameraPermissionGranted = cameraHasPermission
@@ -390,7 +431,10 @@ class MainActivity : ComponentActivity() {
             Log.d("MainActivity_Final", "InitialCheck: Both permissions already GRANTED.")
             attemptInitializeAgentSDK()
         } else {
-            Log.d("MainActivity_Final", "InitialCheck: Permissions not fully granted. Will show PermissionsScreen.")
+            Log.d(
+                "MainActivity_Final",
+                "InitialCheck: Permissions not fully granted. Will show PermissionsScreen."
+            )
             isLoadingPermissions = false
         }
     }
@@ -402,7 +446,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestCameraPermission() {
-        val cameraHasPermission = checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        val cameraHasPermission =
+            checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (cameraHasPermission) {
             Log.d("MainActivity_Final", "CheckAfterAudio: CAMERA permission already GRANTED.")
             isCameraPermissionGranted = true
@@ -437,65 +482,67 @@ class MainActivity : ComponentActivity() {
     }
     // ▼▼▼【最终决议 2/2：机器人特种部队的行动纲领】▼▼▼
 
-    private var robotActionsDeployed = false // 部署旗帜，确保任务只执行一次
-
     /**
      * 机器人行动部署的唯一入口。
      * 它像一个耐心的哨兵，反复检查API状态，直到就绪为止。
      */
-    private fun deployRobotActionsWhenReady() {
-        // 如果已部署，或Activity已销毁，则部队立刻解散
+
+    private fun deployHardwareWhenReady() {
         if (robotActionsDeployed || isDestroyed) {
+            Log.w(TAG, "Deployment skipped: already deployed or activity is destroyed.")
             return
         }
 
-        // 检查RobotAPI是否完全就绪
+        // 保险丝机制：检查重试次数
+        if (checkTimes >= MAX_CHECK_TIMES) {
+            Log.e(
+                TAG,
+                "Deployment FAILED: RobotAPI not ready after $MAX_CHECK_TIMES attempts. Giving up."
+            )
+            return
+        }
+
+        // 核心判断：检查RobotAPI是否完全就绪
         if (RobotApi.getInstance().isApiConnectedService && RobotApi.getInstance().isActive) {
-            // 时机已到！API就绪！
-            Log.i(TAG, "【最终决议】: RobotAPI已就绪！开始执行机器人功能部署！")
-            executeRobotActionDeployment()
+            Log.i(TAG, "【终极融合】: RobotAPI is READY! Deploying modern hardware controller...")
+            executeHardwareDeployment()
         } else {
-            // 时机未到，300毫秒后再次检查，保持耐心
-            android.os.Handler(Looper.getMainLooper()).postDelayed({ deployRobotActionsWhenReady() }, 300)
+            checkTimes++ // 增加检查次数
+            Log.d(TAG, "RobotAPI not ready, attempt #$checkTimes. Checking again in 300ms...")
+            android.os.Handler(Looper.getMainLooper())
+                .postDelayed({ deployHardwareWhenReady() }, 300)
         }
     }
-    private fun executeRobotActionDeployment() {
-        if (robotActionsDeployed) return // 双重保险，防止重复执行
+    // ▼▼▼【函数4：我们今日的利刃 - “指挥官任命”】▼▼▼
+    /**
+     * 硬件部署的最终执行逻辑。
+     * 职责：创建并初始化我们先进的 RobotControlFragment。
+     */
+    private fun executeHardwareDeployment() {
+        if (robotActionsDeployed) return // 双重保险
 
-        // 1. 从兵工厂获取所有机器人Action
-        val allRobotActions = RobotActionFactory.createAllRobotActions(lifecycleScope)
+        try {
+            // 1. 创建我们今日的先进指挥所 RobotControlFragment
+            robotControlFragment = RobotControlFragment(
+                pageAgent,       // ✅ 使用我们本地创建的、成功的PageAgent
+                lifecycleScope   // ✅ 传入Activity的生命周期
+            )
 
-        // 2. 将这些Action【补充注册】进AgentOS的大脑
-        allRobotActions.forEach { action ->
-            pageAgent.registerAction(action)
-            Log.i(TAG, "【最终决议】: 机器人Action已注册: ${action.name}")
+            // 2. 命令指挥所，全权负责所有硬件能力的部署工作！
+            robotControlFragment?.setupRobotActions()
+
+            robotActionsDeployed = true // 升起胜利的旗帜
+            Log.i(
+                TAG,
+                "【终极融合】: RobotControlFragment deployed successfully! System is fully operational."
+            )
+
+        } catch (e: Exception) {
+            Log.e(TAG, "FATAL: Exception during RobotControlFragment deployment!", e)
         }
-
-        // 3. 【最终的关键一步：更新大脑认知】
-        // 用一个包含【所有新旧功能】的、最完整的Objective，覆盖掉临时的Objective
-        pageAgent.setObjective(
-            "这是一个应用主页。你的首要任务是与用户进行友好、有帮助的对话。" +
-                    "当用户的意图符合以下工具的功能时，你必须优先调用对应的工具：\n" +
-                    "1. '查询天气'：调用'com.zhiyun.action.QUERY_WEATHER'工具。\n" +
-                    "2. '查询限行'：调用'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'工具。\n" +
-                    "3. '播放音乐'：调用'com.zhiyun.action.PLAY_MUSIC'工具，并从用户的话语中里提取'song_name'参数,不局限七里香。\n" +
-                    "4. '停止播放'：调用'com.zhiyun.action.STOP_MUSIC'工具。\n" +
-                    // 机器人控制
-                    "5. 【前进】: 当用户说'前进'、'往前走'时, 调用 'com.zhiyun.agentrobot.action.MOTION_GO_FORWARD'。可提取'distance'参数(米)。\n" +
-                    "6. 【后退】: 当用户说'后退'、'往后退'时, 调用 'com.zhiyun.agentrobot.action.MOTION_GO_BACKWARD'。可提取'distance'参数。\n" +
-                    "7. 【左转】: 当用户说'向左转'、'左转'时, 调用 'com.zhiyun.agentrobot.action.MOTION_TURN_LEFT'。可提取'angle'参数(度)。\n" +
-                    "8. 【右转】: 当用户说'向右转'、'右转'时, 调用 'com.zhiyun.agentrobot.action.MOTION_TURN_RIGHT'。可提取'angle'参数。\n" +
-                    "9. 【停止移动】: 当用户说'停'、'停下'时, 调用 'com.zhiyun.agentrobot.action.MOTION_STOP_MOVE'。\n" +
-                    "10. 【移动头部】: 当用户说'抬头'、'低头'、'头向左/右'时, 调用 'com.zhiyun.agentrobot.action.HEAD_MOVE'。提取'vAngle'(上下, 范围0-90)和'hAngle'(左右, 范围-120-120)参数。\n" +
-                    "11. 【头部回正】: 当用户说'头回正'时, 调用 'com.zhiyun.agentrobot.action.HEAD_RESET'。\n" +
-
-                    "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
-        )
-
-        robotActionsDeployed = true // 升起胜利的旗帜，任务完成！
-        Log.i(TAG, "【最终决议】: 机器人功能部署完毕，最终Objective已设定。系统完全就绪！")
     }
 }
+
 
 // --- Composable 函数 (无修改) ---
 @Composable

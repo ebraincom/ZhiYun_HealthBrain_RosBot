@@ -1,183 +1,79 @@
-// ▼▼▼ 【V12-全面战争修正版】代码 - 修正所有命名，区分两种回调！ ▼▼▼
+// 文件路径: com/zhiyun/agentrobot/fragment/RobotControlFragment.kt
+
 package com.zhiyun.agentrobot.fragment
 
 import android.os.Bundle
 import android.util.Log
 import com.ainirobot.agent.PageAgent
-import com.ainirobot.agent.action.Action
-import com.ainirobot.agent.action.ActionExecutor
-import com.ainirobot.agent.base.ActionResult
-import com.ainirobot.agent.base.ActionStatus
-import com.ainirobot.coreservice.client.RobotApi
-import com.ainirobot.coreservice.client.listener.CommandListener
+import com.zhiyun.agentrobot.RobotActionFactory // ✅ 【关键】引入我们唯一的“兵工厂”
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import org.json.JSONObject
 
+/**
+ * 机器人控制前线指挥所
+ *
+ * 职责：
+ * 1. 接收来自MainActivity的部署命令。
+ * 2. 调用唯一的兵工厂 (RobotActionFactory) 来创建所有机器人动作。
+ * 3. 将这些动作部署到PageAgent上。
+ * 4. 为PageAgent设定最终的作战纲领 (Objective)。
+ *
+ * 它不再关心任何Action的创建细节或API回调处理。
+ */
 class RobotControlFragment(
+    // 它运行所必需的“两大资源”
+
     private val pageAgent: PageAgent,
     private val coroutineScope: CoroutineScope
 ) {
     private val TAG = "RobotControlFragment"
-    private val ACTION_PREFIX = "com.zhiyun.agentrobot.action."
-    private val reqId = 0 // 通用请求ID
 
     /**
-     * 注册所有机器人动作（Action）
+     * 【核心方法】
+     * 执行部署任务。该方法由MainActivity在机器人准备就绪时调用。
      */
     fun setupRobotActions() {
-        Log.d(TAG, "开始以【全面战争】标准，注册所有已知动作...")
+        Log.d(TAG, "指挥所收到部署命令，开始联络兵工厂并部署机器人动作...")
 
-        // --- 注册头部云台动作 ---
-        registerHeadActions()
+        // 1. 调用唯一的“兵工厂”，获取所有规范化生产的Action。
+        //    【关键】将构造函数中传入的 coroutineScope 作为“能源”传递给兵工厂！
+        val allActions = RobotActionFactory.createAllRobotActions(coroutineScope)
 
-        // --- 注册基础移动动作 ---
-        registerMotionActions()
+        // 2. 将所有Action一次性注册到PageAgent上。
+        //    【关键】使用构造函数中传入的 pageAgent 进行部署！
+        pageAgent.registerActions(allActions)
 
-        Log.i(TAG, "所有动作已完成注册，系统进入完全战备状态！")
+
+        Log.d(TAG, "不再读取旧Objective，直接设定包含所有功能的最终版本！")
+
+        // 2. 定义我们硬件控制部分的Objective描述
+        pageAgent.setObjective(
+            "这是一个应用主页。你的首要任务是与用户进行友好、有帮助的对话。" +
+                    "当用户的意图符合以下工具的功能时，你必须优先调用对应的工具：\n" +
+
+                    // 【通用功能部分】 - 我们必须在这里“预知”并包含MainActivity可能定义的功能
+                    "1. '查询天气': 调用 'com.zhiyun.action.QUERY_WEATHER'。\n" +
+                    "2. '查询限行': 调用 'com.zhiyun.action.QUERY_TRAFFIC_RESTRICTION'。\n" +
+                    "3. '播放音乐': 调用 'com.zhiyun.action.PLAY_MUSIC'，并提取'song_name'参数。\n" +
+                    "4. '停止播放': 调用 'com.zhiyun.action.STOP_MUSIC'。\n" +
+
+                    // 【硬件控制部分】
+                    "5. '前进': 调用 'com.zhiyun.agentrobot.action.MOTION_GO_FORWARD'。\n" +
+                    "6. '后退': 调用 'com.zhiyun.agentrobot.action.MOTION_GO_BACKWARD'。\n" +
+                    "7. '左转': 调用 'com.zhiyun.agentrobot.action.MOTION_TURN_LEFT'。\n" +
+                    "8. '右转': 调用 'com.zhiyun.agentrobot.action.MOTION_TURN_RIGHT'。\n" +
+                    "9. '停止': 调用 'com.zhiyun.agentrobot.action.MOTION_STOP_MOVE'。\n" +
+                    "10. '移动头部': 当用户说'抬头'或'低头'时, 调用 'com.zhiyun.agentrobot.action.HEAD_MOVE'。并设置参数 'vAngle' 为 '30'。当用户说'低头'时，调用相同的工具，但设置参数 'vAngle' 为 '-20'。\n" +
+                    "11. '头部回正': 调用 'com.zhiyun.agentrobot.action.HEAD_RESET'。\n" +
+
+                    "如果用户的意图与工具无关，你就以当前的全局角色身份与他自由闲聊。"
+        )
+
+        Log.i(TAG, "【最终剧本】已设定。系统完全就绪！")
     }
 
-    // =================================================================
-    // 模块一：头部云台动作
-    // =================================================================
-    private fun registerHeadActions() {
-        // 1. 移动头部
-        val moveHeadAction = Action(ACTION_PREFIX + "HEAD_MOVE") // ★ 命名正确
-        moveHeadAction.executor = object : ActionExecutor {
-            override fun onExecute(action: Action, params: Bundle?): Boolean {
-                coroutineScope.launch {
-                    val vAngleFloat = params?.getFloat("vAngle", 0f) ?: 0f
-                    val hAngleFloat = params?.getFloat("hAngle", 0f) ?: 0f
-                    val mode = params?.getString("mode", "relative") ?: "relative"
-
-                    val vAngle: Int = vAngleFloat.toInt()
-                    val hAngle: Int = hAngleFloat.toInt() // 允许从Objective获取hAngle
-
-                    Log.i(TAG, "执行 HEAD_MOVE: vAngle=$vAngle, hAngle=$hAngle, mode=$mode")
-                    RobotApi.getInstance().moveHead(reqId, mode, mode, hAngle, vAngle, createHeadListener(action))
-                }
-                return true
-            }
-        }
-        pageAgent.registerAction(moveHeadAction)
-
-        // 2. 头部回正
-        val resetHeadAction = Action(ACTION_PREFIX + "HEAD_RESET") // ★ 命名正确
-        resetHeadAction.executor = object : ActionExecutor {
-            override fun onExecute(action: Action, params: Bundle?): Boolean {
-                coroutineScope.launch {
-                    Log.i(TAG, "执行 HEAD_RESET")
-                    RobotApi.getInstance().resetHead(reqId, createHeadListener(action))
-                }
-                return true
-            }
-        }
-        pageAgent.registerAction(resetHeadAction)
-    }
-
-    // =================================================================
-    // 模块二：基础移动动作 (崩溃的根源)
-    // =================================================================
-    private fun registerMotionActions() {
-        // 3. 前进
-        val goForwardAction = Action(ACTION_PREFIX + "MOTION_GO_FORWARD") // ★★★ 致命错误修正 ★★★
-        goForwardAction.executor = createMotionExecutor { action, params ->
-            val distance = params?.getFloat("distance", 0f) ?: 0f
-            val avoid = params?.getBoolean("avoid", true) ?: true
-            Log.i(TAG, "执行 MOTION_GO_FORWARD: distance=$distance, avoid=$avoid")
-            RobotApi.getInstance().goForward(reqId, 0.2f, distance, avoid, createMotionListener(action))
-        }
-        pageAgent.registerAction(goForwardAction)
-
-        // 4. 后退
-        val goBackwardAction = Action(ACTION_PREFIX + "MOTION_GO_BACKWARD") // ★★★ 致命错误修正 ★★★
-        goBackwardAction.executor = createMotionExecutor { action, params ->
-            val distance = params?.getFloat("distance", 0f) ?: 0f
-            Log.i(TAG, "执行 MOTION_GO_BACKWARD: distance=$distance")
-            RobotApi.getInstance().goBackward(reqId, 0.2f, distance, createMotionListener(action))
-        }
-        pageAgent.registerAction(goBackwardAction)
-
-        // 5. 左转
-        val turnLeftAction = Action(ACTION_PREFIX + "MOTION_TURN_LEFT") // ★★★ 致命错误修正 ★★★
-        turnLeftAction.executor = createMotionExecutor { action, params ->
-            val angle = params?.getFloat("angle", 0f) ?: 0f
-            Log.i(TAG, "执行 MOTION_TURN_LEFT: angle=$angle")
-            RobotApi.getInstance().turnLeft(reqId, 20f, angle, createMotionListener(action))
-        }
-        pageAgent.registerAction(turnLeftAction)
-
-        // 6. 右转
-        val turnRightAction = Action(ACTION_PREFIX + "MOTION_TURN_RIGHT") // ★★★ 致命错误修正 ★★★
-        turnRightAction.executor = createMotionExecutor { action, params ->
-            val angle = params?.getFloat("angle", 0f) ?: 0f
-            Log.i(TAG, "执行 MOTION_TURN_RIGHT: angle=$angle")
-            RobotApi.getInstance().turnRight(reqId, 20f, angle, createMotionListener(action))
-        }
-        pageAgent.registerAction(turnRightAction)
-
-        // 7. 停止移动
-        val stopMoveAction = Action(ACTION_PREFIX + "MOTION_STOP_MOVE") // ★★★ 致命错误修正 ★★★
-        stopMoveAction.executor = createMotionExecutor { action, _ ->
-            Log.i(TAG, "执行 MOTION_STOP_MOVE")
-            RobotApi.getInstance().stopMove(reqId, createMotionListener(action))
-        }
-        pageAgent.registerAction(stopMoveAction)
-    }
-
-    // =================================================================
-    // 模块三：回调处理器 (区分对待)
-    // =================================================================
-
-    /**
-     *  回调处理器1：用于处理 moveHead/resetHead 的复杂JSON回调
-     */
-    private fun createHeadListener(action: Action): CommandListener {
-        return object : CommandListener() {
-            override fun onResult(result: Int, message: String) {
-                try {
-                    val status = JSONObject(message).getString("status")
-                    val success = "ok".equals(status, ignoreCase = true)
-                    val resultBundle = Bundle().apply { putString("resultMessage", message) }
-                    action.notify(ActionResult(if (success) ActionStatus.SUCCEEDED else ActionStatus.FAILED, resultBundle))
-                } catch (e: Exception) {
-                    // ... 错误处理 ...
-                    action.notify(ActionResult(ActionStatus.FAILED))
-                }
-            }
-        }
-    }
-
-    /**
-     *  回调处理器2：用于处理 goForward/turnLeft 等基础移动的简单 "succeed" 字符串回调
-     */
-    private fun createMotionListener(action: Action): CommandListener { // ★★★ 核心新增 ★★★
-        return object : CommandListener() {
-            override fun onResult(result: Int, message: String) {
-                val success = "succeed".equals(message, ignoreCase = true)
-                Log.d(action.name, "基础移动回调: result=$result, message='$message', success=$success")
-                action.notify(ActionResult(if (success) ActionStatus.SUCCEEDED else ActionStatus.FAILED))
-            }
-        }
-    }
-
-    /**
-     *  辅助函数：为基础移动动作创建一个统一的执行器模板
-     */
-    private fun createMotionExecutor(block: (Action, Bundle?) -> Unit): ActionExecutor {
-        return object : ActionExecutor {
-            override fun onExecute(action: Action, params: Bundle?): Boolean {
-                coroutineScope.launch { block(action, params) }
-                return true
-            }
-        }
-    }
-
-    private fun bundleToString(bundle: Bundle?): String {
-        // ... (内容无变化) ...
-        if (bundle == null) return "null"
-        if (bundle.isEmpty) return "empty"
-        return bundle.keySet().joinToString(", ") { key -> "$key=${bundle.get(key)}" }
-    }
+    // 注意：
+    // 此处不再有任何 registerHeadActions(), registerMotionActions(),
+    // createHeadListener(), createMotionListener(), createMotionExecutor() 等方法。
+    // 所有的“制造”细节已被完美地封装在 RobotActionFactory.kt 中。
+    // 这个类变得非常“薄”且职责单一。
 }
-// ▲▲▲ 【V12-全面战争修正版】代码 ▲▲▲

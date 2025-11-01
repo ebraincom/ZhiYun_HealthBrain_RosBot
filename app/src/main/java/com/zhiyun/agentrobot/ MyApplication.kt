@@ -21,7 +21,10 @@ import android.app.Activity // <-- 【修复2】导入 Activity 类
 import android.os.RemoteException
 import com.ainirobot.coreservice.client.ApiListener
 import com.ainirobot.coreservice.client.module.ModuleCallbackApi
-import com.zhiyun.agentrobot.manager.RobotApiManager
+// import com.zhiyun.agentrobot.manager.RobotApiManager
+import com.ainirobot.agent.PageAgent // <--- 加上这一行，让文件“认识”PageAgent
+
+
 // ▲▲▲ 【V2.0新增导入】 ▲▲▲
 
 /**
@@ -34,7 +37,7 @@ class MyApplication : Application() {
     lateinit var appAgent: AppAgent
         private set
     private var isAgentSDKInitialized: Boolean = false
-    private var TAG = "MyApplication_v12_Puppeteer" // 更新版本号，便于调试
+    private var TAG = "MyApplication_Final" // 更新版本号，便于调试
 
     override fun onCreate() {
         Log.d("MyApplication", "Application onCreate: START") // 更早的日志
@@ -76,14 +79,16 @@ class MyApplication : Application() {
                 RobotApi.getInstance().setCallback(object : ModuleCallbackApi() {
                     // 控制权恢复
                     override fun onRecovery() {
+                        Log.i(TAG, "GlobalCallback: onRecovery - 控制权已恢复。")
                         // 通知“司令部”，武器已上膛
-                        RobotApiManager.onApiReady()
+                        // RobotApiManager.onApiReady()
                     }
 
                     // 控制权被剥夺
                     override fun onSuspend() {
                         // 通知“司令部”，武器被收走
-                        RobotApiManager.onApiSuspend()
+                        Log.w(TAG, "GlobalCallback: onSuspend - 控制权被剥夺。")
+                        // RobotApiManager.onApiSuspend()
                     }
 
                     // 接收底层语音指令（可以先留空，我们主要用AgentOS）
@@ -95,17 +100,18 @@ class MyApplication : Application() {
                 })
 
                 // 首次连接成功，也应视为API就绪
-                RobotApiManager.onApiReady()
+                Log.i(TAG, "RobotAPI Server 首次连接成功，全局回调已设置。")
+                // RobotApiManager.onApiReady()
             }
 
             override fun handleApiDisconnected() {
                 Log.e(TAG, "RobotAPI Server 连接已断开！")
-                RobotApiManager.onApiSuspend()
+                // RobotApiManager.onApiSuspend()
             }
 
             override fun handleApiDisabled() {
                 Log.e(TAG, "RobotAPI Server 已被禁用！")
-                RobotApiManager.onApiSuspend()
+                // RobotApiManager.onApiSuspend()
             }
         })
     }
