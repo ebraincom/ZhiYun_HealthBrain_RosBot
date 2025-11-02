@@ -80,6 +80,7 @@ import com.zhiyun.agentrobot.ui.guide.GuideActivity
 // import androidx.compose.material3.Icon // 确保导入正确的Icon
 import androidx.annotation.DrawableRes // 需要这个注解来标记资源ID
 import com.zhiyun.agentrobot.data.selectableRoles
+import com.zhiyun.agentrobot.ui.itemstorage.ItemStorageActivity
 
 // import coil.compose.AsyncImage
 // import coil.request.ImageRequest
@@ -687,6 +688,7 @@ fun ZhiyunRecordSection(
                 )
 
                 // MODIFICATION: “物品存放”按钮调用 FeatureButton，确保参数完整
+                val context = LocalContext.current
                 FeatureButton(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -694,7 +696,12 @@ fun ZhiyunRecordSection(
                     text = stringResource(R.string.item_storage_button),
                     iconPainter = painterResource(id = R.drawable.ic_storage_placeholder),
                     iconDescription = stringResource(R.string.item_storage_button),
-                    onClick = onStorageClick,
+                    onClick = {
+                        // 创建一个明确指向 ItemStorageActivity 的 Intent
+                        val intent = Intent(context, ItemStorageActivity::class.java)
+                        // 启动 Activity
+                        context.startActivity(intent)
+                    },
                     layoutStyle = ButtonLayoutStyle.TEXT_LEFT_ICON_RIGHT,
                     // enabled = true, // 可以省略
                     backgroundColor = StorageButtonBg, // 明确是 backgroundColor
@@ -704,8 +711,8 @@ fun ZhiyunRecordSection(
                     iconSize = 74.dp,
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold
-
                 )
+
             }
             // 调整: 左按钮列和右大图之间的 Spacer
             Spacer(Modifier.width(32.dp))

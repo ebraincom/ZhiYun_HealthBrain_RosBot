@@ -91,6 +91,9 @@ dependencies {
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
     // 添加了EventBus的依赖,实现V2.0底层调用
     implementation("org.greenrobot:eventbus:3.3.1")
+    implementation("androidx.compose.material3:material3-window-size-class:1.0.1") // FlowRow 可能需要这个
+    implementation("androidx.compose.foundation:foundation-layout:1.4.0") // 确保layout库版本较
+
 
 
 

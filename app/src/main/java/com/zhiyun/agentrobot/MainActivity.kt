@@ -48,6 +48,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import com.zhiyun.agentrobot.fragment.RobotControlFragment
 import com.ainirobot.coreservice.client.RobotApi
+import com.zhiyun.agentrobot.ui.itemstorage.ItemStorageActivity
+
 
 
 
@@ -130,6 +132,17 @@ class MainActivity : ComponentActivity() {
                     when {
                         isAgentSdkInitialized -> HomeScreen(
                             weatherDataState = weatherDataState,
+                            onStorageClick = {
+                                Log.d("MainActivity_DEBUG", "onStorageClick: 接到HomeScreen火力请求，开始执行'天然'跃迁！")
+
+                                // 1. 【跃迁指令】：创建意图，打开“城门”
+                                val intent = Intent(context, ItemStorageActivity::class.java)
+                                context.startActivity(intent)
+                                Log.i("MainActivity_DEBUG", "城门已开 (ItemStorageActivity started)!")
+
+                                // 2. 【激活指令】：主力部队发起总攻，激活“新世界”！
+                                Log.i("MainActivity_DEBUG", "跃迁已完成 (ItemStorageActivity started)。静待'天然'激活...")
+                            },
                             onMoreConsultClick = {
                                 startActivity(Intent(this@MainActivity, GuideActivity::class.java))
                                 Log.i(

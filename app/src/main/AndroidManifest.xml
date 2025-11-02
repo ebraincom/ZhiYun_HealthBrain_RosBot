@@ -103,6 +103,12 @@
             android:label="@string/title_activity_family_member"
             android:theme="@style/Theme.ZhiYun_AgentRobot" />
 
+        <activity
+            android:name=".ui.itemstorage.ItemStorageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+
 
     </application>
 
