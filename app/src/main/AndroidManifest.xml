@@ -108,6 +108,16 @@
             android:exported="false"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
 
+        <activity
+            android:name=".ui.medicinereminder.MedicineReminderActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+        <receiver
+            android:name=".ui.medicinereminder.MedicineAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
 
 
     </application>

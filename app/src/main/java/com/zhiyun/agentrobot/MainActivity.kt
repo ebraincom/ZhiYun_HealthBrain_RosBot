@@ -49,6 +49,7 @@ import kotlinx.coroutines.Dispatchers
 import com.zhiyun.agentrobot.fragment.RobotControlFragment
 import com.ainirobot.coreservice.client.RobotApi
 import com.zhiyun.agentrobot.ui.itemstorage.ItemStorageActivity
+import com.zhiyun.agentrobot.ui.medicinereminder.MedicineReminderActivity
 
 
 
@@ -132,6 +133,18 @@ class MainActivity : ComponentActivity() {
                     when {
                         isAgentSdkInitialized -> HomeScreen(
                             weatherDataState = weatherDataState,
+                            onMedicineReminderClick = {
+                                Log.d("MainActivity_DEBUG", "onMedicineReminderClick: 接到HomeScreen火力请求，开始执行'服药管理'跃迁！")
+
+                                // 1. 【跃迁指令】：创建意图，打开“城门”
+                                val intent = Intent(context, MedicineReminderActivity::class.java)
+                                context.startActivity(intent)
+                                Log.i("MainActivity_DEBUG", "城门已开 (MedicineReminderActivity started)!")
+
+                                // 2. 【激活指令】：主力部队发起总攻，激活“新世界”！
+                                Log.i("MainActivity_DEBUG", "跃迁已完成 (MedicineReminderActivity started)。静待'服药管理'激活...")
+                            },
+
                             onStorageClick = {
                                 Log.d("MainActivity_DEBUG", "onStorageClick: 接到HomeScreen火力请求，开始执行'天然'跃迁！")
 

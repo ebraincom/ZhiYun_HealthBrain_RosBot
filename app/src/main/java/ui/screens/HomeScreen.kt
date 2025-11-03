@@ -81,6 +81,8 @@ import com.zhiyun.agentrobot.ui.guide.GuideActivity
 import androidx.annotation.DrawableRes // 需要这个注解来标记资源ID
 import com.zhiyun.agentrobot.data.selectableRoles
 import com.zhiyun.agentrobot.ui.itemstorage.ItemStorageActivity
+import com.zhiyun.agentrobot.ui.medicinereminder.MedicineReminderActivity
+
 
 // import coil.compose.AsyncImage
 // import coil.request.ImageRequest
@@ -851,12 +853,16 @@ fun ZhiyunAssistantSection(
                     verticalArrangement = Arrangement.spacedBy(buttonVerticalSpacing)
                 ) {
                     // 按钮2：服药管理
+                    val context = LocalContext.current
                     FeatureButton(
                         modifier = buttonFixedSizeModifier,
                         text = stringResource(R.string.medicine_reminder_button),
                         iconPainter = painterResource(R.drawable.ic_medicine_placeholder),
                         iconDescription = stringResource(R.string.medicine_reminder_button),
-                        onClick = onMedicineReminderClick,
+                        onClick = {
+                            val intent = Intent(context, MedicineReminderActivity::class.java)
+                            context.startActivity(intent)
+                        },
                         backgroundColor = AssistantButtonYellowBg,
                         contentColor = AssistantButtonYellowContent,
                         layoutStyle = ButtonLayoutStyle.ICON_TOP_TEXT_BOTTOM,
