@@ -50,7 +50,8 @@ import com.zhiyun.agentrobot.fragment.RobotControlFragment
 import com.ainirobot.coreservice.client.RobotApi
 import com.zhiyun.agentrobot.ui.itemstorage.ItemStorageActivity
 import com.zhiyun.agentrobot.ui.medicinereminder.MedicineReminderActivity
-
+import com.zhiyun.agentrobot.ui.planreminder.PlanReminderActivity
+import com.zhiyun.agentrobot.ui.todayreminder.TodayReminderActivity
 
 
 
@@ -133,6 +134,30 @@ class MainActivity : ComponentActivity() {
                     when {
                         isAgentSdkInitialized -> HomeScreen(
                             weatherDataState = weatherDataState,
+                            onTodayReminderClick = {
+                                Log.d("MainActivity_DEBUG", "onTodayReminderClick: 接到HomeScreen火力请求，开始执行'当天提醒'跃迁！")
+
+                                // 1. 【跃迁指令】：创建意图，打开通往“当天提醒”的“城门”
+                                val intent = Intent(context, TodayReminderActivity::class.java)
+                                context.startActivity(intent)
+                                Log.i("MainActivity_DEBUG", "城门已开 (TodayReminderActivity started)!")
+
+                                // 2. 【激活指令】：主力部队发起总攻，激活“新世界”！
+                                Log.i("MainActivity_DEBUG", "跃迁已完成 (TodayReminderActivity started)。静待'当天提醒'激活...")
+                            },
+
+                            onPlanReminderClick = {
+                                Log.d("MainActivity_DEBUG", "onPlanReminderClick: 接到HomeScreen火力请求，开始执行'计划提醒'跃迁！")
+
+                                // 1. 【跃迁指令】：创建意图，打开“城门”
+                                val intent = Intent(context, PlanReminderActivity::class.java)
+                                context.startActivity(intent)
+                                Log.i("MainActivity_DEBUG", "城门已开 (PlanReminderActivity started)!")
+
+                                // 2. 【激活指令】：主力部队发起总攻，激活“新世界”！
+                                Log.i("MainActivity_DEBUG", "跃迁已完成 (PlanReminderActivity started)。静待'计划提醒'激活...")
+                            },
+
                             onMedicineReminderClick = {
                                 Log.d("MainActivity_DEBUG", "onMedicineReminderClick: 接到HomeScreen火力请求，开始执行'服药管理'跃迁！")
 

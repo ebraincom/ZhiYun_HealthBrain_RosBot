@@ -82,6 +82,8 @@ import androidx.annotation.DrawableRes // 需要这个注解来标记资源ID
 import com.zhiyun.agentrobot.data.selectableRoles
 import com.zhiyun.agentrobot.ui.itemstorage.ItemStorageActivity
 import com.zhiyun.agentrobot.ui.medicinereminder.MedicineReminderActivity
+import com.zhiyun.agentrobot.ui.planreminder.PlanReminderActivity
+import com.zhiyun.agentrobot.ui.todayreminder.TodayReminderActivity
 
 
 // import coil.compose.AsyncImage
@@ -740,7 +742,8 @@ fun ZhiyunRecordSection(
 @Composable
 fun ZhiyunAssistantSection(
     modifier: Modifier = Modifier,
-    onPlanReminderClick: () -> Unit, onMedicineReminderClick: () -> Unit,
+    onPlanReminderClick: () -> Unit,
+    onMedicineReminderClick: () -> Unit,
     onTodayReminderClick: () -> Unit, // 新增
     onAiBrainClick: () -> Unit,       // 新增
     onRepeatReminderClick: () -> Unit, // 新增
@@ -809,12 +812,16 @@ fun ZhiyunAssistantSection(
                     verticalArrangement = Arrangement.spacedBy(buttonVerticalSpacing)
                 ) {
                     // 按钮1：计划提醒
+                    val context = LocalContext.current
                     FeatureButton(
                         modifier = buttonFixedSizeModifier,
                         text = stringResource(R.string.plan_reminder_button),
                         iconPainter = painterResource(R.drawable.ic_plan_placeholder),
                         iconDescription = stringResource(R.string.plan_reminder_button), // 添加描述
-                        onClick = onPlanReminderClick,
+                        onClick = {
+                            val intent = Intent(context, PlanReminderActivity::class.java)
+                            context.startActivity(intent)
+                        },
                         backgroundColor = AssistantButtonBlueBg,
                         contentColor = AssistantButtonBlueContent,
                         layoutStyle = ButtonLayoutStyle.ICON_TOP_TEXT_BOTTOM, // <-- 新增：指定布局
@@ -827,7 +834,10 @@ fun ZhiyunAssistantSection(
                         text = stringResource(R.string.today_reminder_button),
                         iconPainter = painterResource(R.drawable.ic_today_reminder_placeholder),
                         iconDescription = stringResource(R.string.today_reminder_button),
-                        onClick = onTodayReminderClick,
+                        onClick = {
+                            val intent = Intent(context, TodayReminderActivity::class.java)
+                            context.startActivity(intent)
+                        },
                         backgroundColor = AssistantButtonBlueBg, // 您可以根据需要调整颜色
                         contentColor = AssistantButtonBlueContent,
                         layoutStyle = ButtonLayoutStyle.ICON_TOP_TEXT_BOTTOM,

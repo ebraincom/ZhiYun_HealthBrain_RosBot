@@ -117,6 +117,29 @@
             android:name=".ui.medicinereminder.MedicineAlarmReceiver"
             android:enabled="true"
             android:exported="false" />
+        <!-- ✅✅✅ “计划提醒”专属的 Activity 注册 ✅✅✅ -->
+        <activity
+            android:name=".ui.planreminder.PlanReminderActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+        <!-- ✅✅✅ “计划提醒”专属的广播接收塔注册 (仿照用药提醒) ✅✅✅ -->
+        <receiver
+            android:name=".ui.planreminder.PlanAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- ✅ 1. “当天提醒”专属的 Activity 注册 -->
+        <activity
+            android:name=".ui.todayreminder.TodayReminderActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+
+        <!-- ✅ 2. “当天提醒”专属的广播接收塔注册 -->
+        <receiver
+            android:name=".ui.todayreminder.TodayReminderAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
 
 
 
