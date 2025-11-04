@@ -1,5 +1,5 @@
-// ✅【【【这是完整的 MedicineReminderScreen.kt 文件！！！】】】
-package com.zhiyun.agentrobot.ui.medicinereminder // ✅ 确保包名正确！
+// ✅✅✅【【【【 这是 V2.0 升级行动的第三站：Screen 终极改造版！！！ 】】】】✅✅✅
+package com.zhiyun.agentrobot.ui.medicinereminder
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -21,18 +21,18 @@ import androidx.compose.ui.tooling.preview.Preview
 
 
 /**
- * 服药管理页面的主屏幕 Composable
+ * 服药管理页面的主屏幕 Composable (此部分无需修改)
  */
 @Composable
 fun MedicineReminderScreen(
     userProfile: UserProfile,
-    reminders: List<MedicineReminderItem>, // 接收从ViewModel来的数据
+    reminders: List<MedicineReminderItem>, // ✅ 自动接收V2.0版的数据列表
     onBack: () -> Unit,
-    onMedicineReminderClick: () -> Unit // 交互卡片按钮的点击事件
+    onMedicineReminderClick: () -> Unit
 ) {
     AppScaffold(
         userProfile = userProfile,
-        onGuideClick = onBack, // 复用“导览界面”按钮作为返回
+        onGuideClick = onBack,
         content = {
             MedicineReminderContent(
                 reminders = reminders,
@@ -43,7 +43,7 @@ fun MedicineReminderScreen(
 }
 
 /**
- * 核心内容区：使用FlowRow排列卡片
+ * 核心内容区 (此部分无需修改)
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -58,10 +58,10 @@ private fun MedicineReminderContent(
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // 1. 固定的交互卡片
+        // 固定的交互卡片 (无需修改)
         InteractionCard(onMedicineReminderClick = onMedicineReminderClick)
 
-        // 2. 动态的提醒内容卡片
+        // 动态的提醒内容卡片 (将使用V2.0版的新卡片)
         reminders.forEach { reminderItem ->
             ReminderCard(item = reminderItem)
         }
@@ -69,7 +69,7 @@ private fun MedicineReminderContent(
 }
 
 /**
- * 黄色的交互卡片
+ * 黄色的交互卡片 (此部分无需修改)
  */
 @Composable
 private fun InteractionCard(onMedicineReminderClick: () -> Unit) {
@@ -78,7 +78,7 @@ private fun InteractionCard(onMedicineReminderClick: () -> Unit) {
             .width(566.dp)
             .height(324.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6)), // 设计图的淡黄色
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9E6)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
@@ -88,14 +88,13 @@ private fun InteractionCard(onMedicineReminderClick: () -> Unit) {
         ) {
             Text(text = "新增用药事项", fontSize = 28.sp, color = Color.DarkGray, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(32.dp))
-            // 语音点击按钮
             Button(
                 onClick = onMedicineReminderClick,
                 modifier = Modifier
                     .width(175.dp)
                     .height(60.dp),
                 shape = RoundedCornerShape(30.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF9E07A)), // 设计图的深黄色
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF9E07A)),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(
@@ -109,8 +108,10 @@ private fun InteractionCard(onMedicineReminderClick: () -> Unit) {
     }
 }
 
+
+// ✅✅✅ 【【【【 关键重构点 1：ReminderCard 已升级到 V2.0 ！！！ 】】】】 ✅✅✅
 /**
- * 白色的提醒内容卡片
+ * 白色的提醒内容卡片 V2.0
  */
 @Composable
 private fun ReminderCard(item: MedicineReminderItem) {
@@ -125,29 +126,34 @@ private fun ReminderCard(item: MedicineReminderItem) {
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 20.dp)) {
-            // 卡片顶部：创建时间和状态
+            // 卡片顶部：创建时间和状态 (使用V2.0字段)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(text = item.creationTime, fontSize = 18.sp, color = Color.Gray)
+                Text(text = item.creationTime, fontSize = 18.sp, color = Color.Gray) // ✅ V2.0: creationTime
                 Text(
-                    text = item.status,
+                    text = item.reminderStatus, // ✅ V2.0: reminderStatus
                     fontSize = 18.sp,
-                    color = if (item.status == "待提醒") Color(0xFFF5A623) else Color.Gray, // 状态颜色区分
+                    color = if (item.reminderStatus == "待提醒") Color(0xFFF5A623) else Color.Gray, // ✅ V2.0: reminderStatus
                     fontWeight = FontWeight.Bold
                 )
             }
 
-            // 卡片中部：提醒内容和图标
+            // 卡片中部：提醒内容和图标 (使用V2.0字段)
             Row(Modifier
                 .fillMaxWidth()
                 .weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    ReminderInfoLine("药物：", item.drugName)
+                    ReminderInfoLine("药物：", item.drugName) // (无变化)
                     Spacer(Modifier.height(8.dp))
-                    ReminderInfoLine("服用说明：", item.dosageInstruction)
+                    ReminderInfoLine("服用说明：", item.dosageInstruction) // ✅ V2.0: dosageInstruction
                     Spacer(Modifier.height(8.dp))
-                    ReminderInfoLine("提醒次数：", item.reminderTimes)
+                    // ✅ V2.0: 将旧的 reminderTimes 拆分为两个独立的行
+                    if (item.reminderFrequency != null) { // 只有在频率不为空时才显示
+                        ReminderInfoLine("提醒频率：", item.reminderFrequency)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    ReminderInfoLine("提醒时间：", item.reminderTimePoints) // ✅ V2.0: reminderTimePoints
                     Spacer(Modifier.height(8.dp))
-                    ReminderInfoLine("服药停止日期：", item.stopDate)
+                    ReminderInfoLine("服药停止：", item.stopCondition ?: "未指定") // ✅ V2.0: stopCondition
                 }
                 Image(
                     painter = painterResource(id = R.drawable.ic_medicine_placeholder),
@@ -158,7 +164,7 @@ private fun ReminderCard(item: MedicineReminderItem) {
                 )
             }
 
-            // 卡片底部：操作按钮
+            // 卡片底部：操作按钮 (无需修改)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { /*TODO*/ }) { Text("修改用药事项", color = Color(0xFF4A90E2), fontSize = 18.sp) }
                 TextButton(onClick = { /*TODO*/ }) { Text("删除用药", color = Color.Red, fontSize = 18.sp) }
@@ -167,6 +173,7 @@ private fun ReminderCard(item: MedicineReminderItem) {
     }
 }
 
+// Info Line 组件无需修改
 @Composable
 private fun ReminderInfoLine(label: String, value: String) {
     Row {
@@ -174,46 +181,48 @@ private fun ReminderInfoLine(label: String, value: String) {
         Text(text = value, fontSize = 20.sp, color = Color.DarkGray, fontWeight = FontWeight.SemiBold)
     }
 }
-// 2. 将此@Preview代码块粘贴到文件的最底部
+
+// ✅✅✅ 【【【【 关键重构点 2：Preview 已升级到 V2.0 ！！！ 】】】】 ✅✅✅
 @Preview(showBackground = true, widthDp = 1920, heightDp = 1080)
 @Composable
 fun MedicineReminderScreenPreview() {
-    // 3. 创建一个临时的、用于预览的假数据列表
+    // 使用 V2.0 结构创建假数据
     val sampleReminders = listOf(
         MedicineReminderItem(
+            creationTime = "2025/11/03 18:30 创建",
             drugName = "阿莫西林 (消炎)",
             dosageInstruction = "每次服用1粒",
-            reminderTimes = "每日12:00/19:00提醒",
-            stopDate = "2025/6/30",
-            status = "今日已提醒",
-            creationTime = "2025/7/29 13:00 创建"
+            reminderFrequency = "每日", // ✅ V2.0: 新增
+            reminderTimePoints = "12:00, 19:00", // ✅ V2.0: 修正
+            stopCondition = "2025/12/30", // ✅ V2.0: 修正
+            reminderStatus = "今日已提醒" // ✅ V2.0: 修正
         ),
         MedicineReminderItem(
+            creationTime = "2025/11/03 17:50 创建",
             drugName = "胃康安",
             dosageInstruction = "每次服用5粒",
-            reminderTimes = "每日7:00/12:00/19:00提醒",
-            stopDate = "2025/8/30",
-            status = "待提醒",
-            creationTime = "2025/7/29 18:00 创建"
+            reminderFrequency = "每日", // ✅ V2.0: 新增
+            reminderTimePoints = "7:00, 12:00, 19:00", // ✅ V2.0: 修正
+            stopCondition = "长期服用", // ✅ V2.0: 修正
+            reminderStatus = "待提醒" // ✅ V2.0: 修正
         ),
         MedicineReminderItem(
+            creationTime = "2025/11/03 09:00 创建",
             drugName = "拜阿司匹林",
             dosageInstruction = "每日1片",
-            reminderTimes = "每日睡前提醒",
-            stopDate = "长期服用",
-            status = "待提醒",
-            creationTime = "2025/7/28 09:00 创建"
+            reminderFrequency = null, // ✅ V2.0: 可以为空
+            reminderTimePoints = "睡前", // ✅ V2.0: 修正
+            stopCondition = "长期服用", // ✅ V2.0: 修正
+            reminderStatus = "待提醒" // ✅ V2.0: 修正
         )
     )
 
-    // 4. 在你的主题(Theme)中调用主屏幕Composable
     ZhiyunAgentRobotTheme {
         MedicineReminderScreen(
             userProfile = UserProfile(name = "王阿姨", avatarUrl = null),
-            reminders = sampleReminders, // 将假数据传递给UI
-            onBack = { }, // 预览中为空实现
-            onMedicineReminderClick = { } // 预览中为空实现
+            reminders = sampleReminders,
+            onBack = { },
+            onMedicineReminderClick = { }
         )
     }
 }
-
