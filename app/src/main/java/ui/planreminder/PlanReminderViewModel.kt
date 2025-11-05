@@ -97,7 +97,7 @@ class PlanReminderViewModel(application: Application) : AndroidViewModel(applica
                 reminderStatus = "待提醒"
             )
 
-            val newList = _reminders.value + newItem
+            val newList = listOf(newItem) + _reminders.value
             _reminders.value = newList
             saveRemindersToPrefs(newList)
 

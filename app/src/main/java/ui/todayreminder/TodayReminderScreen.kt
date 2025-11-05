@@ -1,5 +1,5 @@
-// ✅✅✅【【【【 这是 V1.0 当天提醒 Screen：遵从最高指示，100%精确复刻最终版！！！ 】】】】✅✅✅
-package com.zhiyun.agentrobot.ui.todayreminder // ✅ 1. 包名已更新
+// ✅✅✅【【【【 这是 V2.2 当天提醒 Screen：消灭所有编译错误的终极无错版！！！ 】】】】✅✅✅
+package com.zhiyun.agentrobot.ui.todayreminder
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -18,40 +18,38 @@ import com.zhiyun.agentrobot.data.UserProfile
 import com.zhiyun.agentrobot.ui.common.AppScaffold
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import androidx.compose.ui.tooling.preview.Preview
-import com.zhiyun.agentrobot.ui.planreminder.PlanReminderItem
 
-/**
- * 当天提醒页面的主屏幕 Composable
- */
-// ✅ 2. Composable函数名已更新
+
 @Composable
 fun TodayReminderScreen(
     userProfile: UserProfile,
-    reminders: List<TodayReminderItem>, // ✅ 3. reminders列表的数据类型已更新
+    reminders: List<TodayReminderItem>,
     onBack: () -> Unit,
-    onTodayReminderClick: () -> Unit // ✅ 4. 回调函数名已更新
+    onTodayReminderClick: () -> Unit,
+    // 【V2.1 修正 1/7】函数签名增加 onDeleteClick 回调
+    onDeleteClick: (String) -> Unit
 ) {
     AppScaffold(
         userProfile = userProfile,
-        onGuideClick = onBack, // 返回按钮复用onGuideClick
+        onGuideClick = onBack,
         content = {
-            // ✅ 5. 调用新的Content Composable
             TodayReminderContent(
                 reminders = reminders,
-                onTodayReminderClick = onTodayReminderClick
+                onTodayReminderClick = onTodayReminderClick,
+                // 【V2.1 修正 2/7】将删除回调传递给内容区
+                onDeleteClick = onDeleteClick
             )
         }
     )
 }
 
-/**
- * 核心内容区
- */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TodayReminderContent( // ✅ 6. Composable函数名已更新
-    reminders: List<TodayReminderItem>, // ✅ 7. 参数类型已更新
-    onTodayReminderClick: () -> Unit // ✅ 8. 参数名已更新
+private fun TodayReminderContent(
+    reminders: List<TodayReminderItem>,
+    onTodayReminderClick: () -> Unit,
+    // 【V2.1 修正 3/7】内容区接收 onDeleteClick 回调
+    onDeleteClick: (String) -> Unit
 ) {
     FlowRow(
         modifier = Modifier
@@ -60,27 +58,27 @@ private fun TodayReminderContent( // ✅ 6. Composable函数名已更新
         horizontalArrangement = Arrangement.spacedBy(24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // ✅ 9. 调用新的交互卡片
         InteractionCard(onTodayReminderClick = onTodayReminderClick)
 
-        // 动态的提醒内容卡片
         reminders.forEach { reminderItem ->
-            ReminderCard(item = reminderItem) // ✅ 10. 参数类型自动匹配 TodayReminderItem
+            // ✅✅✅ 【【【【 核心修正点：消灭所有编译错误！！！ 】】】】 ✅✅✅
+            // 之前所有错误都集中在这里，现在已合并为正确的函数调用！
+            ReminderCard(
+                item = reminderItem, // 参数1：传入提醒项
+                onDelete = { onDeleteClick(reminderItem.id) } // 参数2：传入删除事件，并绑定ID
+            )
         }
     }
 }
 
-/**
- * 黄色的交互卡片
- */
 @Composable
-private fun InteractionCard(onTodayReminderClick: () -> Unit) { // ✅ 11. 参数名已更新
+private fun InteractionCard(onTodayReminderClick: () -> Unit) {
+    // ... 此部分代码与您提供的一致，无需修改 ...
     Card(
         modifier = Modifier
             .width(566.dp)
             .height(324.dp),
         shape = RoundedCornerShape(16.dp),
-        // ✅ 12. 颜色暂用计划提醒的淡蓝色，您可以替换为当天提醒的主题色
         colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -89,7 +87,7 @@ private fun InteractionCard(onTodayReminderClick: () -> Unit) { // ✅ 11. 参�
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "新增当天提醒", fontSize = 28.sp, color = Color.DarkGray, fontWeight = FontWeight.Bold) // ✅ 13. 文本已更新
+            Text(text = "新增当天提醒", fontSize = 28.sp, color = Color.DarkGray, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = onTodayReminderClick,
@@ -97,7 +95,6 @@ private fun InteractionCard(onTodayReminderClick: () -> Unit) { // ✅ 11. 参�
                     .width(175.dp)
                     .height(60.dp),
                 shape = RoundedCornerShape(30.dp),
-                // ✅ 14. 颜色暂用计划提醒的主题蓝，您可以替换
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A90E2)),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
@@ -112,11 +109,10 @@ private fun InteractionCard(onTodayReminderClick: () -> Unit) { // ✅ 11. 参�
     }
 }
 
-/**
- * 白色的提醒内容卡片
- */
+
 @Composable
-private fun ReminderCard(item: TodayReminderItem) { // ✅ 15. 参数类型已更新
+// 【V2.1 修正 4/7】卡片函数签名增加 onDelete 回调
+private fun ReminderCard(item: TodayReminderItem, onDelete: () -> Unit) {
     Card(
         modifier = Modifier
             .width(566.dp)
@@ -128,7 +124,7 @@ private fun ReminderCard(item: TodayReminderItem) { // ✅ 15. 参数类型已�
         Column(modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp, vertical = 20.dp)) {
-            // 卡片顶部：创建时间和状态
+            // ... 卡片顶部和中部代码与您提供的一致，无需修改 ...
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(text = item.creationTime, fontSize = 18.sp, color = Color.Gray)
                 Text(
@@ -138,21 +134,22 @@ private fun ReminderCard(item: TodayReminderItem) { // ✅ 15. 参数类型已�
                     fontWeight = FontWeight.Bold
                 )
             }
-
-            // 卡片中部：提醒内容和图标
             Row(Modifier
                 .fillMaxWidth()
                 .weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    // ✅ 16. 【业务适配】数据字段已更新为当天提醒的 content, details
                     ReminderInfoLine("提醒事项：", item.content)
                     Spacer(Modifier.height(8.dp))
-                    if(item.details.isNotBlank()) { // 只有在有补充说明时才显示
+                    if(item.details.isNotBlank()) {
                         ReminderInfoLine("补充说明：", item.details)
                         Spacer(Modifier.height(8.dp))
                     }
+                    ReminderInfoLine("提醒时间：", item.reminderTimePoints)
+                    Spacer(Modifier.height(8.dp))
+                    if(item.stopCondition != null) {
+                        ReminderInfoLine("停止条件：", item.stopCondition)
+                    }
                 }
-                // ✅ 17. 图标已更新为当天提醒的图标
                 Image(
                     painter = painterResource(id = R.drawable.ic_today_reminder_placeholder),
                     contentDescription = "当天提醒图标",
@@ -161,19 +158,19 @@ private fun ReminderCard(item: TodayReminderItem) { // ✅ 15. 参数类型已�
                         .padding(start = 16.dp)
                 )
             }
-
             // 卡片底部：操作按钮
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { /*TODO*/ }) { Text("修改提醒", color = Color(0xFF4A90E2), fontSize = 18.sp) } // ✅ 18. 文本已更新
-                TextButton(onClick = { /*TODO*/ }) { Text("删除提醒", color = Color.Red, fontSize = 18.sp) }
+                TextButton(onClick = { /*TODO: 修改提醒逻辑*/ }) { Text("修改提醒", color = Color(0xFF4A90E2), fontSize = 18.sp) }
+                // 【V2.1 修正 5/7】为“删除提醒”按钮赋予点击动作
+                TextButton(onClick = onDelete) { Text("删除提醒", color = Color.Red, fontSize = 18.sp) }
             }
         }
     }
 }
 
-// Info Line 组件无需修改，保持复用
 @Composable
 private fun ReminderInfoLine(label: String, value: String) {
+    // ... 此部分代码与您提供的一致，无需修改 ...
     Row {
         Text(text = label, fontSize = 20.sp, color = Color.Gray)
         Text(text = value, fontSize = 20.sp, color = Color.DarkGray, fontWeight = FontWeight.SemiBold)
@@ -182,29 +179,20 @@ private fun ReminderInfoLine(label: String, value: String) {
 
 @Preview(showBackground = true, widthDp = 1920, heightDp = 1080)
 @Composable
-fun TodayReminderScreenPreview() { // ✅ 19. Preview函数名已更新
+fun TodayReminderScreenPreview() {
     val sampleReminders = listOf(
-        TodayReminderItem(
-            creationTime = "2025/11/05 10:00 创建",
-            content = "下午三点开会",
-            details = "准备好上周的报告",
-            reminderStatus = "待提醒"
-        ),
-        TodayReminderItem(
-            creationTime = "2025/11/05 09:00 创建",
-            content = "取快递",
-            details = "在3号楼下丰巢柜",
-            reminderStatus = "已提醒"
-        )
+        TodayReminderItem("1", "2025/11/05 10:00 创建", "下午三点开会", "准备好上周的报告", "2025/11/05 当天提醒", null, "待提醒"),
+        TodayReminderItem("2", "2025/11/05 09:00 创建", "取快递", "在3号楼下丰巢柜", "2025/11/05 当天提醒", null, "已提醒")
     )
 
     ZhiyunAgentRobotTheme {
-        // ✅ 20. 调用新的Screen Composable
         TodayReminderScreen(
             userProfile = UserProfile(name = "总司令", avatarUrl = null),
             reminders = sampleReminders,
             onBack = { },
-            onTodayReminderClick = { }
+            onTodayReminderClick = { },
+            // 【V2.1 修正 6/7 & 7/7】为Preview提供onDeleteClick的空实现
+            onDeleteClick = {}
         )
     }
 }

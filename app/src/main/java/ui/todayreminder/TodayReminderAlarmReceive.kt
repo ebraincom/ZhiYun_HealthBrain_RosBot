@@ -6,6 +6,10 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.ainirobot.agent.AgentCore
+import android.app.AlarmManager
+import android.app.PendingIntent
+import java.util.Calendar
+
 
 // ✅ 2. 类名已更新
 class TodayReminderAlarmReceiver : BroadcastReceiver() {
@@ -57,12 +61,45 @@ class TodayReminderAlarmReceiver : BroadcastReceiver() {
         // ✅✅✅ 【【【 4. 更新持久化计数值: 完全复刻！！！ 】】】】 ✅✅✅
         prefs.edit().putInt(reminderId, currentCount).apply()
 
-        // ✅✅✅ 【【【 5. 【业务逻辑适配】: 仅修改此部分逻辑！！！ 】】】】 ✅✅✅
-        // 根据您的业务逻辑，"当天提醒"是一次性的，不涉及多次“接力”提醒。
-        // 因此，我们直接进入“任务完成”的逻辑。
-        Log.i(TAG, "V1.0: >>> '当天提醒'任务已完成，无需接力。正在清理计数器...<<<")
-        prefs.edit().remove(reminderId).apply()
+        // 5. 【统一的接力逻辑】: 检查是否需要“自我接力”
+        val totalCount = intent.getIntExtra("TOTAL_COUNT", 3) // 默认3次
+        if (currentCount < totalCount) {
+            Log.i(TAG, "V1.0: 任务未完成，准备设置第 ${currentCount + 1} 次提醒...")
+            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            val intervalMillis = intent.getLongExtra("INTERVAL_MILLIS", 0L)
+
+            // ✅ 6. Intent指向新的PlanAlarmReceiver
+            val nextIntent = Intent(context, TodayReminderAlarmReceiver::class.java).apply {
+                // ✅ 7. Intent的Action已更新
+                action = "TODAY_REMIDER_ACTION_$reminderId"
+                // 复制所有下一次触发时依然需要的信息
+                putExtras(intent.extras!!)
+            }
+
+            val nextPendingIntent = PendingIntent.getBroadcast(
+                context,
+                reminderId.hashCode(),
+                nextIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val nextTriggerTime = System.currentTimeMillis() + intervalMillis
+            val calendar = Calendar.getInstance().apply { timeInMillis = nextTriggerTime }
+
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextTriggerTime, nextPendingIntent)
+            Log.i(TAG, "V1.0: >>> [第${currentCount + 1}次] 提醒已成功设置在: ${calendar.time} <<<")
+
+        } else {
+            // 6. 任务完成，清理计数器
+            Log.i(TAG, "V1.0: >>> 提醒次数已达 $totalCount 次，任务彻底结束。正在清理计数器...<<<")
+            prefs.edit().remove(reminderId).apply()
+        }
     }
 }
+
+
+
+
+
 
 

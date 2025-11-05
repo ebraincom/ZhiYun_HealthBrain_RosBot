@@ -4,6 +4,8 @@
 // =================================================================================
 package com.zhiyun.agentrobot.util // 包名声明，与您的文件路径完全一致
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
 import android.graphics.Rect
 import android.graphics.YuvImage
@@ -15,6 +17,7 @@ import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
 
 object ImageUtils {
 
@@ -88,4 +91,19 @@ object ImageUtils {
             null
         }
     }
+    /**
+     * ✅ 方法归位：根据文件路径获取Bitmap对象
+     * 现在它是 ImageUtils 对象的一个标准方法了！
+     * @param path 图片文件的本地绝对路径
+     * @return Bitmap? 如果成功则返回Bitmap对象，否则返回null
+     */
+    fun getBitmapFromPath(path: String): Bitmap? {
+        return try {
+            BitmapFactory.decodeFile(path)
+        } catch (e: Exception) {
+            Log.e("ImageUtils", "Failed to decode bitmap from path: $path", e)
+            null
+        }
+    }
 }
+

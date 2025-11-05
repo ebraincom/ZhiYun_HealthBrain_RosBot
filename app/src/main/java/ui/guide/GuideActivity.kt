@@ -33,6 +33,23 @@ import com.zhiyun.agentrobot.ui.dialogs.RoleSelectionDialog
 import com.zhiyun.agentrobot.ui.theme.ZhiyunAgentRobotTheme
 import com.zhiyun.agentrobot.util.CameraEngine
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.viewModels
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import com.zhiyun.agentrobot.viewmodel.FaceExpressionViewModel
+
 
 /**
  * 【v1.1·标准化改造版】
@@ -40,19 +57,11 @@ import androidx.appcompat.app.AppCompatActivity
  */
 
 class GuideActivity : ComponentActivity() {
-    private val TAG = "GuideActivity_V1.1" // 【升级】最终语音胜利版TAG
+    private val TAG = "GuideActivity_V2.0_Final" // 【升级】最终语音胜利版TAG
 
-    // 权限请求器
-    private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
-            if (isGranted) {
-                Log.i(TAG, "PERMISSION GRANTED after request. Proceeding to take photo.")
-                startTakingPhoto()
-            } else {
-                Log.e(TAG, "PERMISSION DENIED. Cannot take photo.")
-                Toast.makeText(this, "没有相机权限，无法拍照", Toast.LENGTH_LONG).show()
-            }
-        }
+    // 【修改点 1-B：引入我们强大的新 ViewModel 指挥官！】
+    // =================================================================================
+    private val faceViewModel: FaceExpressionViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -82,7 +91,21 @@ class GuideActivity : ComponentActivity() {
         var showRoleSelectionDialog by remember { mutableStateOf(false) }
         var currentSelectedItem by remember { mutableStateOf(guideUiItems.first()) }
         val currentUserProfile = UserProfile(name = "王阿姨")
-
+        // 【修改点 2-A：建立观察哨，监听 ViewModel 的状态变化】
+        // =================================================================================
+        val statusText by faceViewModel.statusText.collectAsState()
+        val capturedBitmap by faceViewModel.capturedFace.collectAsState()
+        // 当状态文本包含“正在” 或 已经成功捕获到图片时，显示弹窗
+        if (statusText.contains("正在") || capturedBitmap != null) {
+            EmoticonCreationDialog(
+                statusText = statusText,
+                bitmap = capturedBitmap,
+                onDismiss = {
+                    // 如果需要允许用户手动关闭弹窗并重置状态，可以在这里调用ViewModel的重置方法
+                    // 例如: faceViewModel.resetState()
+                }
+            )
+        }
         // 【UI逻辑保持不变】
         if (showRoleSelectionDialog) {
             val rolesForSelection = listOfNotNull(roleAssistant, roleData, roleDoctor).filter {
@@ -105,17 +128,27 @@ class GuideActivity : ComponentActivity() {
 
         AppScaffold(
             userProfile = currentUserProfile,
-            onUserProfileClick = { Toast.makeText(context, "点击了用户头像", Toast.LENGTH_SHORT).show() },
+            onUserProfileClick = {
+                Toast.makeText(context, "点击了用户头像", Toast.LENGTH_SHORT).show()
+            },
             onMoreConsultClick = { showRoleSelectionDialog = true },
-            onGuideClick = { Toast.makeText(context, "当前已在导览页面", Toast.LENGTH_SHORT).show() },
-            onOneTouchSosClick = { Toast.makeText(context, "点击了一键呼叫", Toast.LENGTH_SHORT).show() },
+            onGuideClick = {
+                Toast.makeText(context, "当前已在导览页面", Toast.LENGTH_SHORT).show()
+            },
+            onOneTouchSosClick = {
+                Toast.makeText(context, "点击了一键呼叫", Toast.LENGTH_SHORT).show()
+            },
             content = { innerPadding ->
-                Column(modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)) {
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                    ) {
                         GuideContentScreen(
                             modifier = Modifier.fillMaxSize(),
                             items = guideUiItems,
@@ -123,13 +156,12 @@ class GuideActivity : ComponentActivity() {
                             onItemSelected = { selectedItem ->
                                 currentSelectedItem = selectedItem
                             },
-                            // 【职责2：动作回调】只负责响应拍照按钮的点击
+                            // =================================================================================
+                            // 【修改点 2-B：连接总攻指令！将按钮点击绑定到 ViewModel！】
+                            // =================================================================================
                             onPhotoClick = {
-                                Log.d(
-                                    TAG,
-                                    "onPhotoClick explicitly triggered. Calling handleExpressionPhotoClick."
-                                )
-                                handleExpressionPhotoClick()
+                                Log.d(TAG, "“表情包合影”按钮点击，命令ViewModel开始总攻！")
+                                faceViewModel.startFaceCaptureProcess()
                             }
                         )
                     }
@@ -138,53 +170,53 @@ class GuideActivity : ComponentActivity() {
         )
     }
 
-    private fun handleExpressionPhotoClick() {
-        Log.i(TAG, "handleExpressionPhotoClick: Checking permissions...")
-        when {
-            checkSelfPermission(Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED -> {
-                Log.i(TAG, "CAMERA permission is already granted. Starting photo process directly.")
-                startTakingPhoto()
-            }
-            else -> {
-                Log.i(TAG, "CAMERA permission not granted. Requesting...")
-                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
-            }
-        }
-    }
-
-    private fun startTakingPhoto() {
-        // ▼▼▼【核心修正1：战前语音动员，保持不变】▼▼▼
-        val welcomeText = "请您面对摄像头，并保持姿势，以便我们获取您的头像"
-        // (application as? MyApplication)?.safeTts(welcomeText) // 假设您有这个方法
-        Log.i(TAG, "TTS requested: '$welcomeText'")
-        Toast.makeText(this, "请看摄像头...", Toast.LENGTH_SHORT).show()
-
-        Log.i(TAG, "All pre-conditions met. Commanding CameraEngine to start...")
-
-        // ▼▼▼【核心修正2：使用帝国标准调用CameraEngine】▼▼▼
-        // 不再使用.instance，并且适配新的takePicture接口
-        CameraEngine.takePicture(this) { success, message, bitmap ->
-            // 回调默认就在UI线程，无需runOnUiThread
-            if (success && bitmap != null) {
-                // ▼▼▼【核心修正3：胜利语音宣告，保持不变】▼▼▼
-                val successText = "拍照成功，稍后获得表情包"
-                // (application as? MyApplication)?.safeTts(successText)
-                Log.i(TAG, "TTS requested: '$successText'")
-
-                // ▼▼▼【核心修正4：使用正确的Toast语法】▼▼▼
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                Log.i(TAG, "VICTORY CONFIRMED! Message: $message, Bitmap acquired.")
-
-                // 在这里，我们可以将获取到的bitmap用于生成表情包
-                // 比如： handleEmoticonCreation(bitmap)
-
-                // 使用完毕后，记得回收bitmap，防止内存泄漏
-                bitmap.recycle()
-
-            } else {
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                Log.e(TAG, "MISSION FAILED! Message: $message")
+    @Composable
+    fun EmoticonCreationDialog(
+        statusText: String,
+        bitmap: android.graphics.Bitmap?,
+        onDismiss: () -> Unit
+    ) {
+        Dialog(onDismissRequest = onDismiss) {
+            Column(
+                modifier = Modifier
+                    .size(300.dp)
+                    .background(
+                        Color.White,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                    )
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (bitmap != null) {
+                    // 如果成功捕获图片，就显示图片
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "捕获的人脸",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentScale = ContentScale.Fit
+                    )
+                } else {
+                    // 如果正在检测/拍照，就显示加载动画
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(64.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = statusText,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
 }
+

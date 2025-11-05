@@ -3,6 +3,7 @@ package com.zhiyun.agentrobot.data.network
 import retrofit2.http.GET
 import retrofit2.http.Query
 
+
 /**
  * Retrofit的API服务接口。
  * 这里定义了我们App中所有的网络请求。
@@ -25,4 +26,5 @@ interface ApiService {
         @Query("start") start: Int = 0,
         @Query("days") days: Int = 1
     ): WeatherResponse // 注意：我们很快就会创建这个WeatherResponse数据类
+
 }

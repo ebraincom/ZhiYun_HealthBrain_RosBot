@@ -150,7 +150,11 @@ private fun ReminderCard(item: PlanReminderItem) { // ✅ 15. 参数类型已更
                     }
                     ReminderInfoLine("提醒时间：", item.reminderTimePoints)
                     Spacer(Modifier.height(8.dp))
-                    ReminderInfoLine("停止条件：", item.stopCondition ?: "未指定")
+                    if (!item.stopCondition.isNullOrBlank()) {
+                        ReminderInfoLine("停止条件：", item.stopCondition)
+                        // 如果您希望在它后面也加一个间距，可以取消这行注释
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
                 // ✅ 17. 图标已更新为通用的计划提醒图标
                 Image(
