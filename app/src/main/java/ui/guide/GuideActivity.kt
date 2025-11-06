@@ -219,4 +219,3 @@ class GuideActivity : ComponentActivity() {
         }
     }
 }
-
