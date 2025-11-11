@@ -15,7 +15,7 @@ import okhttp3.Interceptor
 object MediaApiClient {
 
     // 我们的私有服务器外网IP地址和端口。
-    private const val BASE_URL = "http://117.50.85.132:/"
+    private const val BASE_URL = "http://117.50.85.132:3000/"
     // private const val AUTH_TOKEN = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc2MTE1OTEyOH0.jyIu1lE8MVJprL-e72h9tmxKae4qlBvWDSORMdkjbSc"
 
     // 日志拦截器，仅用于调试我们的媒体API。

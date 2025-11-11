@@ -17,6 +17,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.File
 import java.util.concurrent.TimeUnit
+import okhttp3.logging.HttpLoggingInterceptor // ✨✨✨ 导入这个库！ ✨✨✨
 
 /**
  * ✨ V11.0: 客户端网络请求实现最终形态。
@@ -32,6 +33,15 @@ object EmoticonApiClient {
         .connectTimeout(60, TimeUnit.SECONDS) // 建议将超时时间与服务器侧对齐，比如60秒
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        .apply {
+            // ✨✨✨ 添加一个HttpLoggingInterceptor，这是我们最强大的侦察武器！✨✨✨
+            val loggingInterceptor = HttpLoggingInterceptor { message ->
+                // 将OkHttp的所有内部日志都打印到我们自己的TAG下，方便过滤查看
+                Log.d("OkHttp_Logger", message)
+            }
+            loggingInterceptor.level = HttpLoggingInterceptor.Level.BODY // 设置为BODY，可以看到完整的请求和响应信息
+            addInterceptor(loggingInterceptor)
+        }
         .build()
 
     // ✅ 【保留】Retrofit实例的创建逻辑不变

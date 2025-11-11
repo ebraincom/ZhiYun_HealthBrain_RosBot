@@ -72,6 +72,7 @@ class GuideActivity : ComponentActivity() {
 
         setContent {
             ZhiyunAgentRobotTheme {
+
                 // 调用包含完整UI和新逻辑的组合函数
                 GuidePageWithFinalLogic()
             }

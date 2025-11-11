@@ -93,6 +93,11 @@ dependencies {
     implementation("org.greenrobot:eventbus:3.3.1")
     implementation("androidx.compose.material3:material3-window-size-class:1.0.1") // FlowRow 可能需要这个
     implementation("androidx.compose.foundation:foundation-layout:1.4.0") // 确保layout库版本较
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("com.github.bumptech.glide:okhttp3-integration:4.16.0")
+    implementation("com.google.zxing:core:3.5.3")
+
+
 
 
 

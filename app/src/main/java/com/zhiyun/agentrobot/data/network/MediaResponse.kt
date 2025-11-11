@@ -23,19 +23,27 @@ data class MediaData(
  * 单个媒体项的模型，定义了歌曲或视频的详细信息。
  */
 data class MediaItem(
+    @SerializedName("id")
     val id: Int,
-    @SerializedName("media_id")
-    val mediaId: String,
+
+    @SerializedName("type")
+    val type: String?,
+
+    @SerializedName("title")
     val title: String,
+
+    @SerializedName("artist")
     val artist: String?,
-    val album: String?,
+
+    @SerializedName("url")
     val url: String,
-    @SerializedName("cover_url")
-    val coverUrl: String?,
-    val type: String,
-    val format: String?,
-    val duration: Int?,
-    val category: String?
+
+    @SerializedName("cover") // <-- 【【【关键修正！】】】与 music.py 的 'cover' 字段对齐
+    val cover: String?,
+
+    @SerializedName("lyrics")
+    val lyrics: String?
+    // 移除了所有与服务器不匹配或冗余的字段：mediaId, album, coverUrl, format, duration, category
 )
 
 /**
