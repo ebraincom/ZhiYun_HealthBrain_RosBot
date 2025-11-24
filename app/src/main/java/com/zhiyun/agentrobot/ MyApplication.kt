@@ -23,6 +23,7 @@ import com.ainirobot.coreservice.client.ApiListener
 import com.ainirobot.coreservice.client.module.ModuleCallbackApi
 // import com.zhiyun.agentrobot.manager.RobotApiManager
 import com.ainirobot.agent.PageAgent // <--- 加上这一行，让文件“认识”PageAgent
+import com.zhiyun.agentrobot.util.RobotInteractionHelper
 
 
 // ▲▲▲ 【V2.0新增导入】 ▲▲▲
@@ -37,7 +38,7 @@ class MyApplication : Application() {
     lateinit var appAgent: AppAgent
         private set
     private var isAgentSDKInitialized: Boolean = false
-    private var TAG = "MyApplication_Final" // 更新版本号，便于调试
+    private var TAG = "MyApplication_V20_FINAL" // 更新版本号，纪念最终的融合胜利！
 
     override fun onCreate() {
         Log.d("MyApplication", "Application onCreate: START") // 更早的日志
@@ -61,7 +62,30 @@ class MyApplication : Application() {
         // ▲▲▲ 【V2.0核心新增】▲▲▲
         Log.d(TAG, "Application onCreate: FINISHED")
 
+        // 在与RobotAPI的外交关系建立之后，我们现在可以安全地派遣我们的“常驻传令兵”了！
+        Log.i(TAG, "RobotAPI connection setup. Initializing RobotInteractionHelper...")
+        RobotInteractionHelper.init()
+        Log.i(TAG, "RobotInteractionHelper has been successfully initialized.")
     }
+
+    // ‼️ 【V19.1 新增】: 增加 onTerminate 回调，确保应用退出时释放资源
+    override fun onTerminate() {
+        super.onTerminate()
+        Log.w(TAG, "Application is terminating. Shutting down all services.")
+
+        // ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓ 【V20.0 终极改造 · 融入式释放】 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+        // 在关闭CameraEngine之前或之后，我们必须召回我们派往PersonApi的“常驻传令兵”。
+        Log.w(TAG, "Releasing RobotInteractionHelper...")
+        RobotInteractionHelper.release()
+        Log.w(TAG, "RobotInteractionHelper has been released.")
+        //
+        // ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑ 【V20.0 终极改造 · 融入式释放】 ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+
+        // ✅ 【保留】您现有的核心收尾工作！
+        Log.w(TAG, "Forcing shutdown of CameraEngine.")
+        CameraEngine.shutdown()
+    }
+
     /**
      * 【V2.0核心新增】
      * 职责：在Application启动时，与RobotAPI Server建立连接，并设置全局回调，
@@ -153,18 +177,6 @@ class MyApplication : Application() {
         Log.i(TAG, "CameraEngine Global Manager registered successfully.")
     }
 
-    /**
-     * 应用被系统终止时，作为最后一道防线，确保引擎被关闭。
-     * 虽然onTerminate在真实设备上不保证每次都调用，但这是一个好习惯。
-     */
-    override fun onTerminate() {
-        super.onTerminate()
-        Log.w(TAG, "Application is terminating. Forcing shutdown of CameraEngine.")
-        // ▼▼▼【【【 核心修正！ 】】】▼▼▼
-        // 直接调用我们最新定义的、唯一的公开关闭接口
-        CameraEngine.shutdown()
-        // ▲▲▲【【【 核心修正！ 】】】▲▲▲
-    }
 
     // =================================================================================
     //  您原有的 AgentSDK 初始化和角色管理代码，保持不变，它们是完美的！
