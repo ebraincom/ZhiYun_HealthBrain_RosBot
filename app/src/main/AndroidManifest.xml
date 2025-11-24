@@ -141,6 +141,11 @@
             android:enabled="true"
             android:exported="false" />
 
+        <activity
+            android:name=".ui.aiphoto.AiphotoActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ZhiYun_AgentRobot" />
+
 
 
     </application>

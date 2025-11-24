@@ -31,10 +31,17 @@ import androidx.compose.foundation.layout.padding
 import kotlinx.coroutines.delay
 
 import androidx.compose.runtime.LaunchedEffect  // <-- LaunchedEffect 的身份证明
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext // 如果之前没有的话
+import com.zhiyun.agentrobot.ui.aiphoto.AiphotoActivity
+import android.content.Context
+
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GuideContentScreen(
+    context: Context = LocalContext.current, // <-- 注入 Context
     modifier: Modifier = Modifier,
     items: List<GuidePageUiItem>,
     selectedItem: GuidePageUiItem,
@@ -142,8 +149,8 @@ fun GuideContentScreen(
                             onClick = {
                                 // 判断当前点击的是哪个按钮
                                 if (item.name == "表情包合影") {
-                                    // 如果是“表情包合影”，则调用专属的拍照回调！
-                                    onPhotoClick()
+                                    val intent = Intent(context, AiphotoActivity::class.java)
+                                    context.startActivity(intent)
                                 } else {
                                     // 如果是其他按钮，则只调用通用的选中状态更新回调。
                                     onItemSelected(item)

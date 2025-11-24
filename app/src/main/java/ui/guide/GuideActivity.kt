@@ -49,6 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.zhiyun.agentrobot.viewmodel.FaceExpressionViewModel
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext // 如果之前没有的话
+import com.zhiyun.agentrobot.ui.aiphoto.AiphotoActivity
+import android.content.Context
+
 
 
 /**

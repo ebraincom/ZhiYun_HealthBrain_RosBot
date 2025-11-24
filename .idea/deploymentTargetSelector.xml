@@ -15,7 +15,7 @@
       </SelectionState>
       <SelectionState runConfigName="zhiyun_app">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-11-04T04:20:28.965266700Z">
+        <DropdownSelection timestamp="2025-11-21T02:07:22.114314700Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="PhysicalDevice" identifier="serial=KTS17P503094" />
